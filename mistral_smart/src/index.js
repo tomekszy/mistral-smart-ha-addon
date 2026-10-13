@@ -236,17 +236,17 @@ pollData$.subscribe(data => {
 
     // 3. Parsowanie prędkości, wietrzenia i czasu
     if (data.spd) {
-        const spd = data.spd;
+        const spd = String(data.spd); // np. "2aow15" (wietrzenie) lub "2ao" / "2aw" (zwykła praca)
         const rawGear = parseInt(spd[0]) || 0;
         const percentState = rawGear * 25;
         const workMode = spd[1] === 'a' ? 'wg programu dobowego' : 'ręczny';
         const dirMap = { o: 'nawiew + wywiew', i: 'tylko nawiew', w: 'tylko wywiew (otwarte okno)' };
         const fansDir = dirMap[spd[2]] || 'nawiew + wywiew';
 
-        const isAiring = spd.includes('w') || spd.length > 3;
-
-        const matchTime = spd.match(/\d+$/);
-        const airingMinutes = (isAiring && matchTime) ? parseInt(matchTime[0], 10) : 0;
+        // Wietrzenie jest aktywne TYLKO wtedy, gdy za 3. znakiem znajdują się cyfry określające czas (długość > 3)
+        const matchTime = spd.slice(3).match(/^\d+/);
+        const isAiring = matchTime !== null;
+        const airingMinutes = isAiring ? parseInt(matchTime[0], 10) : 0;
 
         client.publish('mistral_addon/number/speed/state', percentState.toString());
         client.publish('mistral_addon/select/work_mode/state', workMode);
@@ -282,10 +282,16 @@ pollData$.subscribe(data => {
         latestData.season = seasonState;
     }
 
-    // 6. Parsowanie daty i czasu
+    // 6. Parsowanie daty i czasu sterownika
     if (data.dat) {
-        const hourMatch = data.dat.match(/g(\d+)/);
-        const minMatch = data.dat.match(/m(\d+)/);
+        // Logowanie surowej wartości do diagnostyki w zakładce "Logi" dodatku
+        console.log('Surowy ciąg data.dat z rekuperatora:', data.dat);
+
+        const rawDat = String(data.dat);
+
+        // Elastyczne szukanie godziny (po litera 'g') i minuty (po litera 'm')
+        const hourMatch = rawDat.match(/g(\d+)/i);
+        const minMatch = rawDat.match(/m(\d+)/i);
 
         if (hourMatch && minMatch) {
             const hour = hourMatch[1].padStart(2, '0');
@@ -297,8 +303,11 @@ pollData$.subscribe(data => {
             const day = String(now.getDate()).padStart(2, '0');
 
             const dateStr = `${year}-${month}-${day} ${hour}:${min}:00`;
+
             client.publish('mistral_addon/sensor/datetime/state', dateStr);
             latestData.datetime = dateStr;
+        } else {
+            console.warn('Nie udało się dopasować godziny/minuty z ciągu:', rawDat);
         }
     }
 });
