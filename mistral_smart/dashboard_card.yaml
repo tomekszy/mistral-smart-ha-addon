@@ -1,6 +1,6 @@
 type: picture-elements
 title: Rekuperator Mistral Smart
-image: /local/mistral_smart/rekuperator.svg
+image: /api/diagram
 elements:
   # Czerpnia (T1)
   - type: state-label

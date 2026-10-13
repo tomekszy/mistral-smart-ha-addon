@@ -62,23 +62,6 @@ const deviceInfo = {
 
 const manualRefresh$ = new Subject();
 
-// Automatyczne kopiowanie pliku rekuperator.svg do katalogu publicznego HA (/config/www/mistral_smart/)
-const haWwwDir = '/config/www';
-const targetDir = path.join(haWwwDir, 'mistral_smart');
-const targetFile = path.join(targetDir, 'rekuperator.svg');
-const sourceFile = path.join(__dirname, '../www/rekuperator.svg');
-
-try {
-    // Tworzymy ścieżki /config/www oraz /config/www/mistral_smart jeśli nie istnieją
-    if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-    }
-    fs.copyFileSync(sourceFile, targetFile);
-    console.log('Automatycznie skopiowano plik rekuperator.svg do /config/www/mistral_smart/');
-} catch (err) {
-    console.warn('Uwaga: Nie udało się automatycznie skopiować pliku SVG:', err.message);
-}
-
 // Obiekt stanu serwowany przez API Express dla Ingress
 let latestData = {
     t1: null,
@@ -102,6 +85,12 @@ const PORT = process.env.INGRESS_PORT || 8192;
 app.use(express.static(path.join(__dirname, '../www')));
 app.get('/api/state', (req, res) => {
     res.json(latestData);
+});
+
+// Endpoint serwujący plik SVG bezpośrednio z serwera Express
+app.get('/api/diagram', (req, res) => {
+    const svgPath = path.join(__dirname, '../www/rekuperator.svg');
+    res.sendFile(svgPath);
 });
 
 app.listen(PORT, () => {
