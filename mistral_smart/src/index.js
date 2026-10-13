@@ -29,7 +29,7 @@ if (fs.existsSync('/data/options.json')) {
     try {
         const rawOptions = fs.readFileSync('/data/options.json');
         const userOptions = JSON.parse(rawOptions);
-        config = { ...config, ...userOptions };
+        config = {...config, ...userOptions};
         console.log(`Wczytano konfigurację HA (wersja ${addonVersion}):`, config);
     } catch (e) {
         console.error('Błąd odczytu /data/options.json:', e.message);
@@ -61,6 +61,23 @@ const deviceInfo = {
 };
 
 const manualRefresh$ = new Subject();
+
+// Automatyczne kopiowanie pliku rekuperator.svg do katalogu publicznego HA (/config/www/mistral_smart/)
+const targetDir = '/config/www/mistral_smart';
+const targetFile = path.join(targetDir, 'rekuperator.svg');
+const sourceFile = path.join(__dirname, '../www/rekuperator.svg');
+
+try {
+    if (fs.existsSync('/config/www')) {
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, {recursive: true});
+        }
+        fs.copyFileSync(sourceFile, targetFile);
+        console.log('Automatycznie skopiowano plik rekuperator.svg do /config/www/mistral_smart/');
+    }
+} catch (err) {
+    console.warn('Uwaga: Nie udało się automatycznie skopiować pliku SVG:', err.message);
+}
 
 // Obiekt stanu serwowany przez API Express dla Ingress
 let latestData = {
@@ -234,7 +251,7 @@ pollData$.subscribe(data => {
         latestData.filterDays = days;
     }
 
-    // 3. Parsowanie prędkości, wietrzenia i czasu (1:1 z Node-RED)
+    // 3. Parsowanie prędkości, wietrzenia i czasu
     if (data.spd) {
         const spd = String(data.spd); // np. "2ao", "2ai", "2aow15"
 
@@ -249,7 +266,6 @@ pollData$.subscribe(data => {
         };
         const fansDir = directionMap[spd[2]] || 'nawiew + wywiew';
 
-        // Dokładna logika z Node-RED:
         const airingOn = spd.slice(3).length >= 3;
         const airingOff = spd.slice(3).length < 3;
         const ventTime = airingOff ? (parseInt(spd.slice(3)) || 0) : (parseInt(spd.slice(5)) || 0);
@@ -288,10 +304,8 @@ pollData$.subscribe(data => {
         latestData.season = seasonState;
     }
 
-    // 6. Parsowanie daty i czasu sterownika (np. "21219" -> Dzien:2, Godz:12, Min:19)
+    // 6. Parsowanie daty i czasu
     if (data.dat) {
-        console.log('Surowy ciąg data.dat z rekuperatora:', data.dat);
-
         const rawDat = String(data.dat).trim();
         let hour = null;
         let min = null;

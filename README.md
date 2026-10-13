@@ -51,51 +51,9 @@ Jeśli wolisz mieć schemat rekuperatora bezpośrednio na swoim głównym pulpic
 
 #### Instrukcja krok po kroku:
 1. Upewnij się, że dodatek jest uruchomiony (plik `rekuperator.svg` jest serwowany automatycznie).
-2. Otwórz plik **`dashboard_card.yaml`** znajdujący się w repozytorium i skopiuj całą jego zawartość.
+2. Otwórz plik [**`dashboard_card.yaml`**](https://raw.githubusercontent.com/tomekszy/mistral-smart-ha-addon/refs/heads/master/mistral_smart/dashboard_card.yaml) znajdujący się w repozytorium i skopiuj całą jego zawartość.
 3. W Home Assistancie przejdź do swojego pulpitu nawigacyjnego, kliknij **3 kropki (prawy górny róg) $\rightarrow$ Edytuj pulpit**.
 4. Kliknij **Dodaj kartę**, przewiń na sam dół i wybierz **Ręcznie (Manual)**.
 5. Wklej skopiowany kod YAML i zapisz kartę.
 
-#### Zawartość pliku `dashboard_card.yaml`:
-```yaml
-type: picture-elements
-title: Rekuperator Mistral Smart
-image: /local/community/mistral_smart/rekuperator.svg
-elements:
-  # Czerpnia (T1)
-  - type: state-label
-    entity: sensor.reku_temp_t1
-    style:
-      top: 75%
-      left: 85%
-      color: '#42a5f5'
-      font-weight: bold
-      font-size: 16px
-
-  # Nawiew (T2)
-  - type: state-label
-    entity: sensor.reku_temp_t2
-    style:
-      top: 55%
-      left: 15%
-      color: '#ef5350'
-      font-weight: bold
-      font-size: 16px
-
-  # Wywiew (T3)
-  - type: state-label
-    entity: sensor.reku_temp_t3
-    style:
-      top: 55%
-      left: 85%
-      color: '#81c784'
-      font-weight: bold
-      font-size: 16px
-
-  # Bieg wentylacji (%)
-  - type: custom:slider-entity-row
-    entity: number.reku_bieg_went
-    style:
-      top: 90%
-      left: 50%
-      width: 80%
+[**Plik dashboard_card.yaml**](https://raw.githubusercontent.com/tomekszy/mistral-smart-ha-addon/refs/heads/master/mistral_smart/dashboard_card.yaml)
