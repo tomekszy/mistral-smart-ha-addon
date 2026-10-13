@@ -1,17 +1,36 @@
 {
   "name": "Mistral Smart Rekuperacja",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "slug": "mistral_smart",
   "description": "Integracja rekuperatorów Pro-Vent Mistral z wykorzystaniem Node.js i RxJS",
-  "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
+  "arch": [
+    "armhf",
+    "armv7",
+    "aarch64",
+    "amd64",
+    "i386"
+  ],
   "startup": "services",
   "boot": "auto",
+  "services": [
+    "mqtt:need"
+  ],
   "options": {
-    "REKUPERATOR_IP": "192.168.0.126",
-    "MQTT_BROKER": "mqtt://core-mosquitto:1883"
+    "REKUPERATOR_IP": "",
+    "POLL_INTERVAL_SEC": 60,
+    "HTTP_TIMEOUT_SEC": 5,
+    "POST_SAVE_DELAY_MS": 300,
+    "MQTT_BROKER": "mqtt://core-mosquitto:1883",
+    "MQTT_USER": "",
+    "MQTT_PASSWORD": ""
   },
   "schema": {
-    "REKUPERATOR_IP": "str",
-    "MQTT_BROKER": "str"
+    "REKUPERATOR_IP": "str?",
+    "POLL_INTERVAL_SEC": "int(5,3600)?",
+    "HTTP_TIMEOUT_SEC": "int(1,60)?",
+    "POST_SAVE_DELAY_MS": "int(0,5000)?",
+    "MQTT_BROKER": "str?",
+    "MQTT_USER": "str?",
+    "MQTT_PASSWORD": "password?"
   }
 }

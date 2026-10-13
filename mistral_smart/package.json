@@ -1,7 +1,7 @@
 {
   "name": "mistral-smart-mqtt",
   "version": "1.0.0",
-  "description": "Home Assistant Add-on for Pro-Vent Mistral EC300 using Node.js and RxJS",
+  "description": "Home Assistant Add-on for Pro-Vent Mistral Smart using Node.js and RxJS",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
