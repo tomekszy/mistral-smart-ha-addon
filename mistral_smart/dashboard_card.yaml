@@ -1,0 +1,41 @@
+type: picture-elements
+title: Rekuperator Mistral Smart
+image: /local/community/mistral_smart/rekuperator.svg
+elements:
+  # Czerpnia (T1)
+  - type: state-label
+    entity: sensor.reku_temp_t1
+    style:
+      top: 75%
+      left: 85%
+      color: '#42a5f5'
+      font-weight: bold
+      font-size: 16px
+
+  # Nawiew (T2)
+  - type: state-label
+    entity: sensor.reku_temp_t2
+    style:
+      top: 55%
+      left: 15%
+      color: '#ef5350'
+      font-weight: bold
+      font-size: 16px
+
+  # Wywiew (T3)
+  - type: state-label
+    entity: sensor.reku_temp_t3
+    style:
+      top: 55%
+      left: 85%
+      color: '#81c784'
+      font-weight: bold
+      font-size: 16px
+
+  # Bieg wentylacji (%)
+  - type: custom:slider-entity-row
+    entity: number.reku_bieg_went
+    style:
+      top: 90%
+      left: 50%
+      width: 80%

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 400" width="100%" height="100%" style="background-color: #1a1a1a; font-family: sans-serif;">
+  <style>
+    .label { fill: #aaaaaa; font-size: 14px; text-anchor: middle; }
+    .val { fill: #ffffff; font-size: 20px; font-weight: bold; text-anchor: middle; }
+    .title { fill: #ffffff; font-size: 22px; font-weight: bold; }
+    .st-red { stroke: #ef5350; stroke-width: 4; fill: none; }
+    .st-blue { stroke: #42a5f5; stroke-width: 4; fill: none; }
+    .st-house { stroke: #e53935; stroke-width: 4; fill: none; }
+    .st-box { stroke: #78909c; stroke-width: 3; fill: #263238; }
+  </style>
+
+  <text x="30" y="45" class="title">Rekuperator Mistral Smart</text>
+
+  <!-- House contour -->
+  <path d="M 40 220 L 130 130 L 220 220 L 220 350 L 40 350 Z" class="st-house" />
+
+  <!-- Heat exchanger box -->
+  <rect x="180" y="200" width="140" height="100" rx="8" class="st-box" />
+  <line x1="180" y1="200" x2="320" y2="300" stroke="#78909c" stroke-width="2" />
+  <line x1="180" y1="300" x2="320" y2="200" stroke="#78909c" stroke-width="2" />
+
+  <!-- Air channels -->
+  <path d="M 100 280 L 180 280" class="st-red" />
+  <path d="M 180 230 L 100 230" class="st-red" />
+  <path d="M 320 230 L 400 230" class="st-blue" />
+  <path d="M 400 280 L 320 280" class="st-blue" />
+
+  <!-- Fans -->
+  <circle cx="150" cy="230" r="14" fill="#37474f" stroke="#ef5350" stroke-width="2"/>
+  <circle cx="350" cy="230" r="14" fill="#37474f" stroke="#42a5f5" stroke-width="2"/>
+
+  <!-- Temperature Labels & Values -->
+  <text x="430" y="275" class="label">Czerpnia (T1)</text>
+  <text x="430" y="300" class="val" fill="#42a5f5">[[sensor.reku_temp_t1.state]] °C</text>
+
+  <text x="70" y="205" class="label">Nawiew (T2)</text>
+  <text x="70" y="230" class="val" fill="#ef5350">[[sensor.reku_temp_t2.state]] °C</text>
+
+  <text x="430" y="205" class="label">Wywiew (T3)</text>
+  <text x="430" y="230" class="val" fill="#81c784">[[sensor.reku_temp_t3.state]] °C</text>
+</svg>

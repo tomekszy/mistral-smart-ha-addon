@@ -5,7 +5,7 @@ const mqtt = require('mqtt');
 const fs = require('fs');
 
 // 1. Odczyt statycznej wersji z manifestu config.json
-let addonVersion = '0.1.0';
+let addonVersion = '1.0.0';
 try {
     addonVersion = require('../config.json').version;
 } catch (e) {
@@ -23,12 +23,11 @@ let config = {
     MQTT_PASSWORD: process.env.MQTT_PASSWORD || process.env.SERVICES_MQTT_PASSWORD || ''
 };
 
-// 3. Nadpisanie konfiguracji opcjami wpisanymi przez użytkownika w HA (z /data/options.json)
 if (fs.existsSync('/data/options.json')) {
     try {
         const rawOptions = fs.readFileSync('/data/options.json');
         const userOptions = JSON.parse(rawOptions);
-        config = {...config, ...userOptions};
+        config = { ...config, ...userOptions };
         console.log(`Wczytano konfigurację HA (wersja ${addonVersion}):`, config);
     } catch (e) {
         console.error('Błąd odczytu /data/options.json:', e.message);
@@ -41,19 +40,16 @@ const HTTP_TIMEOUT_MS = (config.HTTP_TIMEOUT_SEC || 5) * 1000;
 const POST_SAVE_DELAY_MS = config.POST_SAVE_DELAY_MS ?? 300;
 const MQTT_BROKER = config.MQTT_BROKER;
 
-// Walidacja obecności adresu IP
 if (!REKUPERATOR_IP) {
     console.error('BŁĄD: Adres REKUPERATOR_IP jest pusty! Uzupełnij IP w zakładce Konfiguracja dodatku.');
 }
 
-// 4. Konfiguracja opcji połączenia z MQTT i nawiązanie połączenia (TUTAJ BRAKOWAŁO KLIENTA)
 const mqttOptions = {};
 if (config.MQTT_USER) mqttOptions.username = config.MQTT_USER;
 if (config.MQTT_PASSWORD) mqttOptions.password = config.MQTT_PASSWORD;
 
 const client = mqtt.connect(MQTT_BROKER, mqttOptions);
 
-// Definicja urządzenia w HA z dynamicznie pobraną wersją (skalowane na całą serię Mistral Smart)
 const deviceInfo = {
     identifiers: ['provent_mistral_smart_addon'],
     name: 'Rekuperator Mistral Smart',
@@ -64,7 +60,6 @@ const deviceInfo = {
 
 const manualRefresh$ = new Subject();
 
-// Strumień okresowego pobierania danych oraz na żądanie po zapisie
 const pollData$ = merge(
     timer(0, POLL_INTERVAL_MS),
     manualRefresh$
@@ -94,8 +89,6 @@ const pollData$ = merge(
 client.on('connect', () => {
     console.log('Połączono z brokerem MQTT');
     registerHAEntities();
-
-    // Odrębny prefiks tematów MQTT dla dodatku (mistral_addon/...)
     client.subscribe('mistral_addon/+/set');
 });
 
@@ -112,9 +105,15 @@ client.on('message', (topic, message) => {
     const payload = message.toString().trim();
     let command = '';
 
-    if (topic.includes('spd_b')) command = `data=spd:b${payload}`;
-    else if (topic.includes('airing')) command = `data=spd:w${payload === 'ON' ? 1 : 0}`;
-    else if (topic.includes('fans')) {
+    // Przy odebraniu komendy nastawy z HA (suwak -> rekuperator)
+    if (topic.includes('spd_b')) {
+        const percentVal = parseInt(payload) || 0;
+        // Mapowanie wartości % na Bieg (0-4)
+        const gear = Math.round(percentVal / 25);
+        command = `data=spd:b${gear}`;
+    } else if (topic.includes('airing')) {
+        command = `data=spd:w${payload === 'ON' ? 1 : 0}`;
+    } else if (topic.includes('fans')) {
         const mapFans = {
             'nawiew + wywiew': 'po',
             'tylko wywiew (otwarte okno)': 'pw',
@@ -141,6 +140,15 @@ client.on('message', (topic, message) => {
             'sezon grzewczy (zima)': 'sz'
         };
         if (mapSez[payload]) command = `data=sez:${mapSez[payload]}`;
+    } else if (topic.includes('sync_time')) {
+        if (payload === 'PRESS') {
+            const now = new Date();
+            const dayOfWeek = now.getDay();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            command = `data=dat:d${dayOfWeek},dat:g${hours},dat:m${minutes}`;
+            console.log('Synchronizacja czasu z rekuperatorem:', command);
+        }
     }
 
     if (command) {
@@ -156,9 +164,7 @@ client.on('message', (topic, message) => {
     }
 });
 
-// Reakcja na odebrane dane z urządzenia
 pollData$.subscribe(data => {
-    // Parsowanie temperatur T1, T2, T3
     if (data.tmp) {
         const lines = data.tmp.split(';');
         const parseVal = val => {
@@ -182,33 +188,37 @@ pollData$.subscribe(data => {
         if (t3 !== null) client.publish('mistral_addon/sensor/t3/state', t3.toString());
     }
 
-    // Parsowanie filtrów
     if (data.flt !== undefined) {
         client.publish('mistral_addon/sensor/filter_days/state', data.flt.toString());
     }
 
-    // Parsowanie prędkości i trybów (spd)
     if (data.spd) {
         const spd = data.spd;
-        const fanSpeed = parseInt(spd[0]) || 0;
+        const rawGear = parseInt(data.spd[0]) || 0;
+        const percentState = rawGear * 25; // 0->0%, 1->25%, 2->50%, 3->75%, 4->100%
         const workMode = spd[1] === 'a' ? 'wg programu dobowego' : 'ręczny';
         const dirMap = {o: 'nawiew + wywiew', i: 'tylko nawiew', w: 'tylko wywiew (otwarte okno)'};
         const fansDir = dirMap[spd[2]] || 'nawiew + wywiew';
         const airingOn = spd.slice(3).length >= 3;
 
-        client.publish('mistral_addon/number/speed/state', fanSpeed.toString());
+        client.publish('mistral_addon/number/speed/state', percentState.toString());
         client.publish('mistral_addon/select/work_mode/state', workMode);
         client.publish('mistral_addon/select/fans/state', fansDir);
         client.publish('mistral_addon/switch/airing/state', airingOn ? 'ON' : 'OFF');
+
+        if (airingOn) {
+            const airingMinutes = parseInt(spd.slice(3)) || 0;
+            client.publish('mistral_addon/sensor/airing_time/state', airingMinutes.toString());
+        } else {
+            client.publish('mistral_addon/sensor/airing_time/state', '0');
+        }
     }
 
-    // Parsowanie bypassu (bps)
     if (data.bps) {
         const bpsMap = {'0a': 'automatyczny (wg temp.)', '0z': 'stale załączony', '0w': 'stale wyłączony'};
         client.publish('mistral_addon/select/bypass/state', bpsMap[data.bps] || 'automatyczny (wg temp.)');
     }
 
-    // Parsowanie sezonu (sez)
     if (data.sez) {
         const sezMap = {
             'za': 'automatyczny',
@@ -218,110 +228,147 @@ pollData$.subscribe(data => {
         };
         client.publish('mistral_addon/select/season/state', sezMap[data.sez] || 'automatyczny');
     }
+
+    if (data.dat) {
+        const parts = data.dat.split(',');
+        let hour = '00', min = '00';
+        parts.forEach(p => {
+            if (p.startsWith('g')) hour = p.replace('g', '').padStart(2, '0');
+            if (p.startsWith('m')) min = p.replace('m', '').padStart(2, '0');
+        });
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${hour}:${min}:00`;
+        client.publish('mistral_addon/sensor/datetime/state', dateStr);
+    }
 });
 
 function registerHAEntities() {
-    // Czujniki
-    client.publish('homeassistant/sensor/mistral_addon_t1/config', JSON.stringify({
-        name: 'Addon Temperatura T1',
+    client.publish('homeassistant/sensor/reku_temp_t1/config', JSON.stringify({
+        name: 'Temperatura T1',
         state_topic: 'mistral_addon/sensor/t1/state',
         unit_of_measurement: '°C',
         device_class: 'temperature',
         state_class: 'measurement',
-        unique_id: 'mistral_addon_t1_sensor',
+        unique_id: 'reku_temp_t1',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/sensor/mistral_addon_t2/config', JSON.stringify({
-        name: 'Addon Temperatura T2',
+    client.publish('homeassistant/sensor/reku_temp_t2/config', JSON.stringify({
+        name: 'Temperatura T2',
         state_topic: 'mistral_addon/sensor/t2/state',
         unit_of_measurement: '°C',
         device_class: 'temperature',
         state_class: 'measurement',
-        unique_id: 'mistral_addon_t2_sensor',
+        unique_id: 'reku_temp_t2',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/sensor/mistral_addon_t3/config', JSON.stringify({
-        name: 'Addon Temperatura T3',
+    client.publish('homeassistant/sensor/reku_temp_t3/config', JSON.stringify({
+        name: 'Temperatura T3',
         state_topic: 'mistral_addon/sensor/t3/state',
         unit_of_measurement: '°C',
         device_class: 'temperature',
         state_class: 'measurement',
-        unique_id: 'mistral_addon_t3_sensor',
+        unique_id: 'reku_temp_t3',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/sensor/mistral_addon_filter_days/config', JSON.stringify({
-        name: 'Addon Dni do wymiany filtrów',
+    client.publish('homeassistant/sensor/reku_filtry_dni/config', JSON.stringify({
+        name: 'Dni do wymiany filtrów',
         state_topic: 'mistral_addon/sensor/filter_days/state',
         unit_of_measurement: 'd',
         icon: 'mdi:air-filter',
-        unique_id: 'mistral_addon_filter_days_sensor',
+        unique_id: 'reku_filtry_dni',
         device: deviceInfo
     }), {retain: true});
 
-    // Sterowanie
-    client.publish('homeassistant/number/mistral_addon_speed/config', JSON.stringify({
-        name: 'Addon Bieg wentylacji',
+    client.publish('homeassistant/sensor/reku_czas_wietrzenia/config', JSON.stringify({
+        name: 'Czas wietrzenia',
+        state_topic: 'mistral_addon/sensor/airing_time/state',
+        unit_of_measurement: 'min',
+        icon: 'mdi:clock-outline',
+        unique_id: 'reku_czas_wietrzenia',
+        device: deviceInfo
+    }), {retain: true});
+
+    client.publish('homeassistant/sensor/reku_data_czas/config', JSON.stringify({
+        name: 'Data i czas sterownika',
+        state_topic: 'mistral_addon/sensor/datetime/state',
+        icon: 'mdi:calendar-clock',
+        unique_id: 'reku_data_czas',
+        device: deviceInfo
+    }), {retain: true});
+
+    client.publish('homeassistant/button/reku_synch_czas/config', JSON.stringify({
+        name: 'Synchronizuj czas z HA',
+        command_topic: 'mistral_addon/sync_time/set',
+        payload_press: 'PRESS',
+        icon: 'mdi:clock-sync-outline',
+        unique_id: 'reku_synch_czas',
+        device: deviceInfo
+    }), {retain: true});
+
+    client.publish('homeassistant/number/reku_bieg_went/config', JSON.stringify({
+        name: 'Bieg wentylacji',
         state_topic: 'mistral_addon/number/speed/state',
         command_topic: 'mistral_addon/spd_b/set',
         min: 0,
-        max: 4,
-        step: 1,
-        icon: 'mdi:speedometer',
-        unique_id: 'mistral_addon_speed_number',
+        max: 100,
+        step: 25,
+        unit_of_measurement: '%',
+        icon: 'mdi:fan',
+        unique_id: 'reku_bieg_went',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/switch/mistral_addon_airing/config', JSON.stringify({
-        name: 'Addon Wietrzenie',
+    client.publish('homeassistant/switch/reku_wietrzenie/config', JSON.stringify({
+        name: 'Wietrzenie',
         state_topic: 'mistral_addon/switch/airing/state',
         command_topic: 'mistral_addon/airing/set',
         payload_on: 'ON',
         payload_off: 'OFF',
         icon: 'mdi:fan',
-        unique_id: 'mistral_addon_airing_switch',
+        unique_id: 'reku_wietrzenie',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/select/mistral_addon_fans/config', JSON.stringify({
-        name: 'Addon Wentylatory',
+    client.publish('homeassistant/select/reku_wentylatory/config', JSON.stringify({
+        name: 'Wentylatory',
         state_topic: 'mistral_addon/select/fans/state',
         command_topic: 'mistral_addon/fans/set',
         options: ['nawiew + wywiew', 'tylko wywiew (otwarte okno)', 'tylko nawiew'],
         icon: 'mdi:fan',
-        unique_id: 'mistral_addon_fans_select',
+        unique_id: 'reku_wentylatory',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/select/mistral_addon_work_mode/config', JSON.stringify({
-        name: 'Addon Tryb pracy wentylacji',
+    client.publish('homeassistant/select/reku_tryb_pracy/config', JSON.stringify({
+        name: 'Tryb pracy wentylacji',
         state_topic: 'mistral_addon/select/work_mode/state',
         command_topic: 'mistral_addon/work_mode/set',
         options: ['wg programu dobowego', 'ręczny'],
         icon: 'mdi:fan',
-        unique_id: 'mistral_addon_work_mode_select',
+        unique_id: 'reku_tryb_pracy',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/select/mistral_addon_bypass/config', JSON.stringify({
-        name: 'Addon Tryb pracy bypassu',
+    client.publish('homeassistant/select/reku_bypass/config', JSON.stringify({
+        name: 'Tryb pracy bypassu',
         state_topic: 'mistral_addon/select/bypass/state',
         command_topic: 'mistral_addon/bypass/set',
         options: ['automatyczny (wg temp.)', 'stale załączony', 'stale wyłączony'],
         icon: 'mdi:air-filter',
-        unique_id: 'mistral_addon_bypass_select',
+        unique_id: 'reku_bypass',
         device: deviceInfo
     }), {retain: true});
 
-    client.publish('homeassistant/select/mistral_addon_season/config', JSON.stringify({
-        name: 'Addon Sezon',
+    client.publish('homeassistant/select/reku_sezon/config', JSON.stringify({
+        name: 'Sezon',
         state_topic: 'mistral_addon/select/season/state',
         command_topic: 'mistral_addon/season/set',
         options: ['automatyczny', 'sezon chłodniczy (lato)', 'sezon grzewczy (zima)'],
         icon: 'mdi:calendar',
-        unique_id: 'mistral_addon_season_select',
+        unique_id: 'reku_sezon',
         device: deviceInfo
     }), {retain: true});
 }

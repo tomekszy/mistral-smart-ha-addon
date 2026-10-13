@@ -1,15 +1,9 @@
-# Mistral Smart HA Add-on (WebStorm Project)
+# Mistral Smart HA Add-on
 
-Dodatek do Home Assistanta integrujący rekuperator Pro-Vent Mistral EC300 z wykorzystaniem Node.js, RxJS i protokołu MQTT Discovery.
+Dodatek do Home Assistanta integrujący rekuperatory z serii **Pro-Vent Mistral Smart** z wykorzystaniem Node.js, RxJS i protokołu MQTT Discovery.
 
-## Przydzielanie nowych encji
-Encje stworzone w tym dodatku mają unikalne sufiksy/przedrostki `mistral_addon_`, co zapobiega powielaniu i konfliktom z encjami utworzonymi bezpośrednio w Node-RED (`provent_http_`).
-
-## Otwieranie w WebStormie
-1. Rozpakuj archiwum ZIP.
-2. W WebStormie wybierz **File -> Open...** i wskaż rozpakowany katalog `mistral-smart-ha-addon`.
-3. Otwórz wbudowany terminal (`Alt + F12`) i uruchom `npm install`, aby zainstalować zależności (`rxjs`, `axios`, `mqtt`).
-
-## Tworzenie Repozytorium GitHub z WebStorma
-1. Wybierz z menu górnego **VCS -> Enable Version Control Integration... -> Git**.
-2. Wybierz **VCS -> Share Project on GitHub**.
+## Wersja v0.1.1
+- Podbicie wersji do `0.1.1`.
+- Domyślny interwał odpytywania w `config.json` zmieniony na `5` sekund (z fallbackiem do `60` sekund w przypadku braku wartości w zmiennych środowiskowych).
+- Zoptymalizowane nazwy encji oraz skrócenie identyfikatorów (`reku_temp_t1`, `reku_bieg_went` itd.).
+- Dedykowany przycisk synchronizacji czasu z HA oraz czujnik daty i czasu sterownika.
