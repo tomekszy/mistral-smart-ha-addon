@@ -267,8 +267,7 @@ pollData$.subscribe(data => {
         const fansDir = directionMap[spd[2]] || 'nawiew + wywiew';
 
         const airingOn = spd.slice(3).length >= 3;
-        const airingOff = spd.slice(3).length < 3;
-        const ventTime = airingOff ? (parseInt(spd.slice(3)) || 0) : (parseInt(spd.slice(5)) || 0);
+        const ventTime = airingOn ? (parseInt(spd.slice(3).replace(/\D/g, ''), 10) || 0) : 0;
 
         client.publish('mistral_addon/number/speed/state', percentState.toString());
         client.publish('mistral_addon/select/work_mode/state', workMode);
