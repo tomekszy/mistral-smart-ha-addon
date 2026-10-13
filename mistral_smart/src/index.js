@@ -3,6 +3,8 @@ const {switchMap, catchError, map, filter, share} = require('rxjs/operators');
 const axios = require('axios');
 const mqtt = require('mqtt');
 const fs = require('fs');
+const express = require('express');
+const path = require('path');
 
 // 1. Odczyt statycznej wersji z manifestu config.json
 let addonVersion = '1.0.0';
@@ -60,6 +62,35 @@ const deviceInfo = {
 
 const manualRefresh$ = new Subject();
 
+// Obiekt stanu serwowany przez API Express dla Ingress
+let latestData = {
+    t1: null,
+    t2: null,
+    t3: null,
+    speed: 0,
+    mode: '',
+    fans: '',
+    airing: false,
+    airingTime: 0,
+    bypass: '',
+    season: '',
+    filterDays: null,
+    datetime: ''
+};
+
+// Inicjalizacja serwera Express (Ingress)
+const app = express();
+const PORT = process.env.INGRESS_PORT || 8192;
+
+app.use(express.static(path.join(__dirname, '../www')));
+app.get('/api/state', (req, res) => {
+    res.json(latestData);
+});
+
+app.listen(PORT, () => {
+    console.log(`Serwer Ingress uruchomiony na porcie ${PORT}`);
+});
+
 const pollData$ = merge(
     timer(0, POLL_INTERVAL_MS),
     manualRefresh$
@@ -105,10 +136,8 @@ client.on('message', (topic, message) => {
     const payload = message.toString().trim();
     let command = '';
 
-    // Przy odebraniu komendy nastawy z HA (suwak -> rekuperator)
     if (topic.includes('spd_b')) {
         const percentVal = parseInt(payload) || 0;
-        // Mapowanie wartości % na Bieg (0-4)
         const gear = Math.round(percentVal / 25);
         command = `data=spd:b${gear}`;
     } else if (topic.includes('airing')) {
@@ -165,6 +194,7 @@ client.on('message', (topic, message) => {
 });
 
 pollData$.subscribe(data => {
+    // 1. Parsowanie temperatur T1, T2, T3
     if (data.tmp) {
         const lines = data.tmp.split(';');
         const parseVal = val => {
@@ -183,42 +213,63 @@ pollData$.subscribe(data => {
         const t2 = line2[0] ? parseVal(line2[0]) : null;
         const t3 = line2[1] ? parseVal(line2[1]) : null;
 
-        if (t1 !== null) client.publish('mistral_addon/sensor/t1/state', t1.toString());
-        if (t2 !== null) client.publish('mistral_addon/sensor/t2/state', t2.toString());
-        if (t3 !== null) client.publish('mistral_addon/sensor/t3/state', t3.toString());
+        if (t1 !== null) {
+            client.publish('mistral_addon/sensor/t1/state', t1.toString());
+            latestData.t1 = t1;
+        }
+        if (t2 !== null) {
+            client.publish('mistral_addon/sensor/t2/state', t2.toString());
+            latestData.t2 = t2;
+        }
+        if (t3 !== null) {
+            client.publish('mistral_addon/sensor/t3/state', t3.toString());
+            latestData.t3 = t3;
+        }
     }
 
+    // 2. Parsowanie filtrów
     if (data.flt !== undefined) {
-        client.publish('mistral_addon/sensor/filter_days/state', data.flt.toString());
+        const days = parseInt(data.flt) || 0;
+        client.publish('mistral_addon/sensor/filter_days/state', days.toString());
+        latestData.filterDays = days;
     }
 
+    // 3. Parsowanie prędkości, wietrzenia i czasu
     if (data.spd) {
         const spd = data.spd;
-        const rawGear = parseInt(data.spd[0]) || 0;
-        const percentState = rawGear * 25; // 0->0%, 1->25%, 2->50%, 3->75%, 4->100%
+        const rawGear = parseInt(spd[0]) || 0;
+        const percentState = rawGear * 25;
         const workMode = spd[1] === 'a' ? 'wg programu dobowego' : 'ręczny';
-        const dirMap = {o: 'nawiew + wywiew', i: 'tylko nawiew', w: 'tylko wywiew (otwarte okno)'};
+        const dirMap = { o: 'nawiew + wywiew', i: 'tylko nawiew', w: 'tylko wywiew (otwarte okno)' };
         const fansDir = dirMap[spd[2]] || 'nawiew + wywiew';
-        const airingOn = spd.slice(3).length >= 3;
+
+        const isAiring = spd.includes('w') || spd.length > 3;
+
+        const matchTime = spd.match(/\d+$/);
+        const airingMinutes = (isAiring && matchTime) ? parseInt(matchTime[0], 10) : 0;
 
         client.publish('mistral_addon/number/speed/state', percentState.toString());
         client.publish('mistral_addon/select/work_mode/state', workMode);
         client.publish('mistral_addon/select/fans/state', fansDir);
-        client.publish('mistral_addon/switch/airing/state', airingOn ? 'ON' : 'OFF');
+        client.publish('mistral_addon/switch/airing/state', isAiring ? 'ON' : 'OFF');
+        client.publish('mistral_addon/sensor/airing_time/state', airingMinutes.toString());
 
-        if (airingOn) {
-            const airingMinutes = parseInt(spd.slice(3)) || 0;
-            client.publish('mistral_addon/sensor/airing_time/state', airingMinutes.toString());
-        } else {
-            client.publish('mistral_addon/sensor/airing_time/state', '0');
-        }
+        latestData.speed = percentState;
+        latestData.mode = workMode;
+        latestData.fans = fansDir;
+        latestData.airing = isAiring;
+        latestData.airingTime = airingMinutes;
     }
 
+    // 4. Parsowanie bypassu
     if (data.bps) {
         const bpsMap = {'0a': 'automatyczny (wg temp.)', '0z': 'stale załączony', '0w': 'stale wyłączony'};
-        client.publish('mistral_addon/select/bypass/state', bpsMap[data.bps] || 'automatyczny (wg temp.)');
+        const bypassState = bpsMap[data.bps] || 'automatyczny (wg temp.)';
+        client.publish('mistral_addon/select/bypass/state', bypassState);
+        latestData.bypass = bypassState;
     }
 
+    // 5. Parsowanie sezonu
     if (data.sez) {
         const sezMap = {
             'za': 'automatyczny',
@@ -226,25 +277,36 @@ pollData$.subscribe(data => {
             'll': 'sezon chłodniczy (lato)',
             'zz': 'sezon grzewczy (zima)'
         };
-        client.publish('mistral_addon/select/season/state', sezMap[data.sez] || 'automatyczny');
+        const seasonState = sezMap[data.sez] || 'automatyczny';
+        client.publish('mistral_addon/select/season/state', seasonState);
+        latestData.season = seasonState;
     }
 
+    // 6. Parsowanie daty i czasu
     if (data.dat) {
-        const parts = data.dat.split(',');
-        let hour = '00', min = '00';
-        parts.forEach(p => {
-            if (p.startsWith('g')) hour = p.replace('g', '').padStart(2, '0');
-            if (p.startsWith('m')) min = p.replace('m', '').padStart(2, '0');
-        });
-        const now = new Date();
-        const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${hour}:${min}:00`;
-        client.publish('mistral_addon/sensor/datetime/state', dateStr);
+        const hourMatch = data.dat.match(/g(\d+)/);
+        const minMatch = data.dat.match(/m(\d+)/);
+
+        if (hourMatch && minMatch) {
+            const hour = hourMatch[1].padStart(2, '0');
+            const min = minMatch[1].padStart(2, '0');
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+
+            const dateStr = `${year}-${month}-${day} ${hour}:${min}:00`;
+            client.publish('mistral_addon/sensor/datetime/state', dateStr);
+            latestData.datetime = dateStr;
+        }
     }
 });
 
 function registerHAEntities() {
+    // Czujniki temperatur
     client.publish('homeassistant/sensor/reku_temp_t1/config', JSON.stringify({
-        name: 'Temperatura T1',
+        name: 'Temperatura czerpni (T1)',
         state_topic: 'mistral_addon/sensor/t1/state',
         unit_of_measurement: '°C',
         device_class: 'temperature',
@@ -254,7 +316,7 @@ function registerHAEntities() {
     }), {retain: true});
 
     client.publish('homeassistant/sensor/reku_temp_t2/config', JSON.stringify({
-        name: 'Temperatura T2',
+        name: 'Temperatura nawiewu (T2)',
         state_topic: 'mistral_addon/sensor/t2/state',
         unit_of_measurement: '°C',
         device_class: 'temperature',
@@ -264,7 +326,7 @@ function registerHAEntities() {
     }), {retain: true});
 
     client.publish('homeassistant/sensor/reku_temp_t3/config', JSON.stringify({
-        name: 'Temperatura T3',
+        name: 'Temperatura wywiewu (T3)',
         state_topic: 'mistral_addon/sensor/t3/state',
         unit_of_measurement: '°C',
         device_class: 'temperature',

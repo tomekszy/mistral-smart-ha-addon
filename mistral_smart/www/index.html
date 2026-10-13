@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mistral Smart - Panel Rekuperacji</title>
+    <style>
+        :root {
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-sub: #9ca3af;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            color: var(--text-sub);
+            border-bottom: 1px solid #374151;
+            padding-bottom: 10px;
+        }
+
+        /* Sekcja SVG Schematu */
+        .svg-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            background: #181f2a;
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        svg {
+            max-width: 700px;
+            width: 100%;
+            height: auto;
+        }
+
+        /* Tabela z parametrami */
+        .grid-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .info-box {
+            background: #2d3748;
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+        }
+
+        .info-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .pulse {
+            animation: pulse-animation 2s infinite;
+        }
+
+        @keyframes pulse-animation {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Karta ze schematem SVG -->
+    <div class="card">
+        <h2>Schemat Przepływu Powietrza i Temperatur</h2>
+        <div class="svg-container">
+            <svg viewBox="0 0 500 360" xmlns="http://www.w3.org/2000/svg">
+                <!-- Kontur Domu -->
+                <path d="M 30 190 L 110 110 L 190 190 L 190 310 L 30 310 Z" fill="none" stroke="#ef4444" stroke-width="3"/>
+
+                <!-- Skrzynia wymiennika -->
+                <rect x="160" y="170" width="150" height="110" rx="8" fill="#111827" stroke="#4b5563" stroke-width="3"/>
+                <line x1="160" y1="170" x2="310" y2="280" stroke="#374151" stroke-width="2"/>
+                <line x1="160" y1="280" x2="310" y2="170" stroke="#374151" stroke-width="2"/>
+
+                <!-- Kanały powietrzne -->
+                <!-- Czerpnia (Prawy Dół -> Wymiennik) -->
+                <path d="M 420 250 L 310 250" fill="none" stroke="#3b82f6" stroke-width="4"/>
+                <!-- Nawiew (Wymiennik -> Lewa Góra / Dom) -->
+                <path d="M 160 200 L 80 200" fill="none" stroke="#ef4444" stroke-width="4"/>
+                <!-- Wywiew (Dom -> Wymiennik) -->
+                <path d="M 80 250 L 160 250" fill="none" stroke="#f59e0b" stroke-width="4"/>
+                <!-- Wyrzutnia (Wymiennik -> Prawa Góra / Zewnątrz) -->
+                <path d="M 310 200 L 420 200" fill="none" stroke="#10b981" stroke-width="4"/>
+
+                <!-- Wentylatory -->
+                <g id="fan-supply">
+                    <circle cx="120" cy="200" r="14" fill="#1f2937" stroke="#ef4444" stroke-width="2"/>
+                    <text x="120" y="204" font-size="12" fill="#ffffff" text-anchor="middle">⚙️</text>
+                </g>
+
+                <g id="fan-extract">
+                    <circle cx="360" cy="200" r="14" fill="#1f2937" stroke="#10b981" stroke-width="2"/>
+                    <text x="360" y="204" font-size="12" fill="#ffffff" text-anchor="middle">⚙️</text>
+                </g>
+
+                <!-- Etykiety i Odczyty Temperatur -->
+                <!-- T1: Czerpnia -->
+                <text x="425" y="240" font-size="12" fill="#9ca3af">Czerpnia (T1)</text>
+                <text x="425" y="265" id="svg-t1" font-size="18" font-weight="bold" fill="#3b82f6">-- °C</text>
+
+                <!-- T2: Nawiew -->
+                <text x="75" y="175" font-size="12" fill="#9ca3af" text-anchor="end">Nawiew (T2)</text>
+                <text x="75" y="200" id="svg-t2" font-size="18" font-weight="bold" fill="#ef4444" text-anchor="end">-- °C</text>
+
+                <!-- T3: Wywiew -->
+                <text x="425" y="175" font-size="12" fill="#9ca3af">Wywiew (T3)</text>
+                <text x="425" y="200" id="svg-t3" font-size="18" font-weight="bold" fill="#10b981">-- °C</text>
+
+                <!-- Wskaźnik Biegu na środku -->
+                <rect x="210" y="40" width="80" height="40" rx="6" fill="#1f2937" stroke="#3b82f6" stroke-width="2"/>
+                <text x="250" y="58" font-size="10" fill="#9ca3af" text-anchor="middle">MOC VENT</text>
+                <text x="250" y="74" id="svg-speed" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">0%</text>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Karta z detalami pracy -->
+    <div class="card">
+        <h2>Status i Parametry Rekuperatora</h2>
+        <div class="grid-info">
+            <div class="info-box">
+                <span class="info-label">Bieg Wentylacji</span>
+                <span class="info-value" id="val-speed">0%</span>
+            </div>
+            <div class="info-box">
+                <span class="info-label">Tryb Pracy</span>
+                <span class="info-value" id="val-mode">--</span>
+            </div>
+            <div class="info-box">
+                <span class="info-label">Wentylatory</span>
+                <span class="info-value" id="val-fans">--</span>
+            </div>
+            <div class="info-box">
+                <span class="info-label">Wietrzenie</span>
+                <span class="info-value" id="val-airing">Wyłączone</span>
+            </div>
+            <div class="info-box">
+                <span class="info-label">Czas Wietrzenia</span>
+                <span class="info-value" id="val-airing-time">0 min</span>
+            </div>
+            <div class="info-box">
+                <span class="info-label">Bypass</span>
+                <span class="info-value" id="val-bypass">--</span>
+            </div>
+            <div class="info-box">
+                <span class="info-label">Sezon</span>
+                <span class="info-value" id="val-season">--</span>
+            </div>
+            <div class="info-box">
+                <span class="info-label">Filtry (Dni)</span>
+                <span class="info-value" id="val-filters">-- d</span>
+            </div>
+            <div class="info-box" style="grid-column: span 2;">
+                <span class="info-label">Czas Sterownika</span>
+                <span class="info-value" id="val-datetime">--</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function updateData() {
+        try {
+            const response = await fetch('./api/state');
+            if (!response.ok) return;
+            const data = await response.json();
+
+            // Aktualizacja Temperatur na SVG
+            document.getElementById('svg-t1').textContent = data.t1 !== null ? `${data.t1} °C` : '-- °C';
+            document.getElementById('svg-t2').textContent = data.t2 !== null ? `${data.t2} °C` : '-- °C';
+            document.getElementById('svg-t3').textContent = data.t3 !== null ? `${data.t3} °C` : '-- °C';
+
+            // Moc / Bieg w SVG
+            document.getElementById('svg-speed').textContent = `${data.speed}%`;
+
+            // Animacja obrotu wentylatorów gdy moc > 0
+            const fanSupply = document.getElementById('fan-supply');
+            const fanExtract = document.getElementById('fan-extract');
+            if (data.speed > 0) {
+                fanSupply.classList.add('pulse');
+                fanExtract.classList.add('pulse');
+            } else {
+                fanSupply.classList.remove('pulse');
+                fanExtract.classList.remove('pulse');
+            }
+
+            // Aktualizacja tabeli z informacjami
+            document.getElementById('val-speed').textContent = `${data.speed}%`;
+            document.getElementById('val-mode').textContent = data.mode || '--';
+            document.getElementById('val-fans').textContent = data.fans || '--';
+            document.getElementById('val-airing').textContent = data.airing ? 'Włączone' : 'Wyłączone';
+            document.getElementById('val-airing-time').textContent = `${data.airingTime || 0} min`;
+            document.getElementById('val-bypass').textContent = data.bypass || '--';
+            document.getElementById('val-season').textContent = data.season || '--';
+            document.getElementById('val-filters').textContent = data.filterDays !== null ? `${data.filterDays} d` : '-- d';
+            document.getElementById('val-datetime').textContent = data.datetime || '--';
+
+        } catch (e) {
+            console.error("Błąd pobierania stanu z Ingress API:", e);
+        }
+    }
+
+    // Odpytywanie API co 1 sekundę
+    setInterval(updateData, 1000);
+    updateData();
+</script>
+
+</body>
+</html>
