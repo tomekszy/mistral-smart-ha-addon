@@ -1,8 +1,10 @@
 # 🌀 Pro-Vent Mistral Smart – Home Assistant Add-on
 
-Oficjalny dodatek do systemu **Home Assistant** przeznaczony do bezprzewodowej integracji, lokalnego sterowania i monitorowania rekuperatorów z serii **Pro-Vent Mistral Smart** (m.in. EC300, EC450, EC600 i innych urządzeń z tą samą automatyką).
+Nieoficjalny, autorski dodatek do systemu **Home Assistant** przeznaczony do integracji, lokalnego sterowania i monitorowania rekuperatorów z serii **Pro-Vent Mistral Smart, Pro i Slim** (m.in. Smart: 300, 400, Pro: 450, 550, 700, Slim: 300, 400, 600 i innych urządzeń z tą samą automatyką).
 
-Dodatek komunikuje się z fizycznym sterownikiem rekuperatora za pośrednictwem lokalnego protokołu HTTP (REST API), a następnie automatycznie rejestruje i udostępnia wszystkie parametry w Home Assistancie przy użyciu protokołu **MQTT Discovery**.
+**UWAGA! Dodatek był testowany WYŁĄCZNIE na modelu Mistral Smart 300 EC z bypassem, i nie gwarantuje, że będzie działał na innych (proszę o informację od użytkowników)**
+
+Dodatek komunikuje się z fizycznym sterownikiem rekuperatora za pośrednictwem lokalnego protokołu HTTP (REST API), a następnie automatycznie rejestruje i udostępnia wszystkie parametry w Home Assistancie przy użyciu protokołu **MQTT Discovery**. W przygotowaniu jest wersja MODBUS.
 
 ---
 
@@ -27,8 +29,8 @@ Dodatek komunikuje się z fizycznym sterownikiem rekuperatora za pośrednictwem 
 
 ## 🛠️ Instalacja i Konfiguracja
 
-1. W Home Assistancie przejdź do: **Ustawienia $\rightarrow$ Dodatki $\rightarrow$ Sklep z dodatkami**.
-2. Kliknij **3 kropki (prawy górny róg) $\rightarrow$ Repozytoria** i wklej adres tego repozytorium GitHub.
+1. W Home Assistancie przejdź do: **Ustawienia $\rightarrow$ Dodatki (Aplikacje) $\rightarrow$ Sklep z dodatkami (Zainstaluj aplikację)**.
+2. Kliknij **3 kropki (prawy górny róg) $\rightarrow$ Repozytoria**, następnie na dole **Dodaj** i wklej adres tego repozytorium GitHub.
 3. Znajdź dodatek **Mistral Smart Rekuperacja** i kliknij **Zainstaluj**.
 4. Przejdź do zakładki **Konfiguracja** dodatku i uzupełnij adres IP rekuperatora w sieci lokalnej (`REKUPERATOR_IP`).
 5. Uruchom dodatek.
@@ -41,11 +43,11 @@ Dodatek udostępnia dwa sposoby na podgląd schematu rekuperacji oraz temperatur
 
 ### Opcja 1: Dedykowany Panel Ingress (Automatyczny)
 Po zainstalowaniu i uruchomieniu dodatku, w lewym menu bocznym Home Assistanta pojawi się nowa zakładka **"Mistral Smart"**. 
-Zawiera ona wbudowany, interaktywny schemat przepływu powietrza SVG z aktualizowanymi na żywo temperaturami i parametrami pracy.
+Zawiera ona wbudowany, interaktywny schemat przepływu powietrza z aktualizowanymi na żywo temperaturami i parametrami pracy.
 
 ---
 
-### Opcja 2: Ręczna Karta na Pulpicie (Szablon `dashboard_card.yaml`)
+### Opcja 2: Ręczna Karta na Pulpicie (Szablon `dashboard_card.yaml`) **To jeszcze nie działa do końca (brak tła)**
 
 Jeśli wolisz mieć schemat rekuperatora bezpośrednio na swoim głównym pulpicie (Lovelace), skorzystaj z przygotowanego szablonu karty `picture-elements`.
 
