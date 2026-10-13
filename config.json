@@ -1,0 +1,17 @@
+{
+  "name": "Mistral Smart Rekuperacja",
+  "version": "1.0.0",
+  "slug": "mistral_smart",
+  "description": "Integracja rekuperatorów Pro-Vent Mistral z wykorzystaniem Node.js i RxJS",
+  "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
+  "startup": "services",
+  "boot": "auto",
+  "options": {
+    "REKUPERATOR_IP": "192.168.0.126",
+    "MQTT_BROKER": "mqtt://core-mosquitto:1883"
+  },
+  "schema": {
+    "REKUPERATOR_IP": "str",
+    "MQTT_BROKER": "str"
+  }
+}
