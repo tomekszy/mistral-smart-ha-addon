@@ -63,18 +63,18 @@ const deviceInfo = {
 const manualRefresh$ = new Subject();
 
 // Automatyczne kopiowanie pliku rekuperator.svg do katalogu publicznego HA (/config/www/mistral_smart/)
-const targetDir = '/config/www/mistral_smart';
+const haWwwDir = '/config/www';
+const targetDir = path.join(haWwwDir, 'mistral_smart');
 const targetFile = path.join(targetDir, 'rekuperator.svg');
 const sourceFile = path.join(__dirname, '../www/rekuperator.svg');
 
 try {
-    if (fs.existsSync('/config/www')) {
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, {recursive: true});
-        }
-        fs.copyFileSync(sourceFile, targetFile);
-        console.log('Automatycznie skopiowano plik rekuperator.svg do /config/www/mistral_smart/');
+    // Tworzymy ścieżki /config/www oraz /config/www/mistral_smart jeśli nie istnieją
+    if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
     }
+    fs.copyFileSync(sourceFile, targetFile);
+    console.log('Automatycznie skopiowano plik rekuperator.svg do /config/www/mistral_smart/');
 } catch (err) {
     console.warn('Uwaga: Nie udało się automatycznie skopiować pliku SVG:', err.message);
 }

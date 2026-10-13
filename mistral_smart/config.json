@@ -1,6 +1,6 @@
 {
   "name": "Mistral Smart Rekuperacja",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "slug": "mistral_smart",
   "description": "Integracja rekuperatorów Pro-Vent Mistral Smart z wykorzystaniem Node.js i RxJS",
   "icon": "mdi:fan",
