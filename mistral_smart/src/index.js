@@ -56,9 +56,9 @@ const client = mqtt.connect(MQTT_BROKER, mqttOptions);
 
 const deviceInfo = {
     identifiers: ['provent_mistral_smart_addon'],
-    name: 'Rekuperator Mistral Smart',
+    name: 'Rekuperator Pro-Vent Mistral',
     manufacturer: 'Pro-Vent',
-    model: 'Mistral Smart',
+    model: 'Pro-Vent Mistral',
     sw_version: `${addonVersion}`
 };
 
