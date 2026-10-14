@@ -1,4 +1,4 @@
-# 🌀 Pro-Vent Mistral Smart – Home Assistant Add-on
+# 🌀 Pro-Vent Mistral – Home Assistant Add-on
 
 Nieoficjalny, autorski dodatek do systemu **Home Assistant** przeznaczony do integracji, lokalnego sterowania i monitorowania rekuperatorów z serii **Pro-Vent Mistral Smart, Pro i Slim** (m.in. Smart: 300, 400, Pro: 450, 550, 700, Slim: 300, 400, 600 i innych urządzeń z tą samą automatyką).
 

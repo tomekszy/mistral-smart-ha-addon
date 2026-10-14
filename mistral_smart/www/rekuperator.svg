@@ -9,7 +9,7 @@
     .st-box { stroke: #78909c; stroke-width: 3; fill: #263238; }
   </style>
 
-  <text x="30" y="45" class="title">Rekuperator Mistral Smart</text>
+  <text x="30" y="45" class="title">Rekuperator Pro-Vent Mistral</text>
 
   <!-- House contour -->
   <path d="M 40 220 L 130 130 L 220 220 L 220 350 L 40 350 Z" class="st-house" />
