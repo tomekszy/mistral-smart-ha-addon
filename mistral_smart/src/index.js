@@ -62,6 +62,21 @@ const deviceInfo = {
 
 const manualRefresh$ = new Subject();
 
+// Bezwarunkowe kopiowanie pliku rekuperator.svg do /config/www/mistral_smart/
+const haConfigWww = '/config/www/mistral_smart';
+try {
+    if (!fs.existsSync(haConfigWww)) {
+        fs.mkdirSync(haConfigWww, { recursive: true });
+    }
+    fs.copyFileSync(
+        path.join(__dirname, '../www/rekuperator.svg'),
+        path.join(haConfigWww, 'rekuperator.svg')
+    );
+    console.log('SUKCES: Skopiowano rekuperator.svg do /config/www/mistral_smart/');
+} catch (err) {
+    console.error('BŁĄD KOPIOWANIA SVG:', err.message);
+}
+
 // Obiekt stanu serwowany przez API Express dla Ingress
 let latestData = {
     t1: null,
@@ -85,12 +100,6 @@ const PORT = process.env.INGRESS_PORT || 8192;
 app.use(express.static(path.join(__dirname, '../www')));
 app.get('/api/state', (req, res) => {
     res.json(latestData);
-});
-
-// Endpoint serwujący plik SVG bezpośrednio z serwera Express
-app.get('/api/diagram', (req, res) => {
-    const svgPath = path.join(__dirname, '../www/rekuperator.svg');
-    res.sendFile(svgPath);
 });
 
 app.listen(PORT, () => {
@@ -254,9 +263,9 @@ pollData$.subscribe(data => {
             w: 'tylko wywiew (otwarte okno)'
         };
         const fansDir = directionMap[spd[2]] || 'nawiew + wywiew';
-
         const airingOn = spd.slice(3).length >= 3;
-        const ventTime = airingOn ? (parseInt(spd.slice(3).replace(/\D/g, ''), 10) || 0) : 0;
+        const airingOff = spd.slice(3).length < 3;
+        const ventTime = airingOff ? (parseInt(spd.slice(3)) || 0) : (parseInt(spd.slice(5)) || 0);
 
         client.publish('mistral_addon/number/speed/state', percentState.toString());
         client.publish('mistral_addon/select/work_mode/state', workMode);

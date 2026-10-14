@@ -47,7 +47,7 @@ Zawiera ona wbudowany, interaktywny schemat przepływu powietrza z aktualizowany
 
 ---
 
-### Opcja 2: Ręczna Karta na Pulpicie (Szablon `dashboard_card.yaml`) **To jeszcze nie działa do końca (brak tła)**
+### Opcja 2: Ręczna Karta na Pulpicie (Szablon `dashboard_card.yaml`)
 
 Jeśli wolisz mieć schemat rekuperatora bezpośrednio na swoim głównym pulpicie (Lovelace), skorzystaj z przygotowanego szablonu karty `picture-elements`.
 
