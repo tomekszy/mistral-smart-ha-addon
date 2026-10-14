@@ -17,6 +17,7 @@ try {
 // 2. Domyślna konfiguracja
 let config = {
     REKUPERATOR_IP: process.env.REKUPERATOR_IP || '',
+    INGRESS_PORT: parseInt(process.env.INGRESS_PORT) || 8192,
     POLL_INTERVAL_SEC: parseInt(process.env.POLL_INTERVAL_SEC) || 60,
     HTTP_TIMEOUT_SEC: parseInt(process.env.HTTP_TIMEOUT_SEC) || 5,
     POST_SAVE_DELAY_MS: parseInt(process.env.POST_SAVE_DELAY_MS) || 300,
@@ -37,6 +38,7 @@ if (fs.existsSync('/data/options.json')) {
 }
 
 const REKUPERATOR_IP = config.REKUPERATOR_IP;
+const PORT = config.INGRESS_PORT || 8192;
 const POLL_INTERVAL_MS = (config.POLL_INTERVAL_SEC || 60) * 1000;
 const HTTP_TIMEOUT_MS = (config.HTTP_TIMEOUT_SEC || 5) * 1000;
 const POST_SAVE_DELAY_MS = config.POST_SAVE_DELAY_MS ?? 300;
@@ -66,7 +68,7 @@ const manualRefresh$ = new Subject();
 const haConfigWww = '/config/www/mistral_smart';
 try {
     if (!fs.existsSync(haConfigWww)) {
-        fs.mkdirSync(haConfigWww, { recursive: true });
+        fs.mkdirSync(haConfigWww, {recursive: true});
     }
     fs.copyFileSync(
         path.join(__dirname, '../www/rekuperator.svg'),
@@ -95,7 +97,6 @@ let latestData = {
 
 // Inicjalizacja serwera Express (Ingress)
 const app = express();
-const PORT = process.env.INGRESS_PORT || 8192;
 
 app.use(express.static(path.join(__dirname, '../www')));
 app.get('/api/state', (req, res) => {
@@ -103,7 +104,7 @@ app.get('/api/state', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Serwer Ingress uruchomiony na porcie ${PORT}`);
+    console.log(`Serwer Express/Ingress uruchomiony na porcie ${PORT}`);
 });
 
 const pollData$ = merge(
@@ -128,7 +129,15 @@ const pollData$ = merge(
         );
     }),
     filter(data => data !== null),
-    map(dataRaw => typeof dataRaw === 'string' ? JSON.parse(dataRaw) : dataRaw),
+    map(dataRaw => {
+        try {
+            return typeof dataRaw === 'string' ? JSON.parse(dataRaw) : dataRaw;
+        } catch (e) {
+            console.warn('Nie udało się sparsować odpowiedzi JSON z rekuperatora:', dataRaw);
+            return null;
+        }
+    }),
+    filter(data => data !== null),
     share()
 );
 
@@ -163,27 +172,43 @@ client.on('message', (topic, message) => {
             'tylko wywiew (otwarte okno)': 'pw',
             'tylko nawiew': 'pi'
         };
-        if (mapFans[payload]) command = `data=spd:${mapFans[payload]}`;
+        if (mapFans[payload]) {
+            command = `data=spd:${mapFans[payload]}`;
+        } else {
+            console.warn('Nieznana opcja wentylatorów z MQTT:', payload);
+        }
     } else if (topic.includes('work_mode')) {
         const mapMode = {
             'wg programu dobowego': 'ta',
             'ręczny': 'tm'
         };
-        if (mapMode[payload]) command = `data=spd:${mapMode[payload]}`;
+        if (mapMode[payload]) {
+            command = `data=spd:${mapMode[payload]}`;
+        } else {
+            console.warn('Nieznany tryb pracy wentylacji z MQTT:', payload);
+        }
     } else if (topic.includes('bypass')) {
         const mapBps = {
             'automatyczny (wg temp.)': 'ta',
             'stale załączony': 'tz',
             'stale wyłączony': 'tw'
         };
-        if (mapBps[payload]) command = `data=bps:${mapBps[payload]}`;
+        if (mapBps[payload]) {
+            command = `data=bps:${mapBps[payload]}`;
+        } else {
+            console.warn('Nieznany tryb bypassu z MQTT:', payload);
+        }
     } else if (topic.includes('season')) {
         const mapSez = {
             'automatyczny': 'sa',
             'sezon chłodniczy (lato)': 'sl',
             'sezon grzewczy (zima)': 'sz'
         };
-        if (mapSez[payload]) command = `data=sez:${mapSez[payload]}`;
+        if (mapSez[payload]) {
+            command = `data=sez:${mapSez[payload]}`;
+        } else {
+            console.warn('Nieznana opcja sezonu z MQTT:', payload);
+        }
     } else if (topic.includes('sync_time')) {
         if (payload === 'PRESS') {
             const now = new Date();
@@ -203,8 +228,10 @@ client.on('message', (topic, message) => {
             if (res.data?.Status === 'OK') {
                 console.log('Zapis udany:', command);
                 setTimeout(() => manualRefresh$.next(), POST_SAVE_DELAY_MS);
+            } else {
+                console.warn('Nieoczekiwana odpowiedź sterownika przy zapisie:', res.data);
             }
-        }).catch(err => console.error('Błąd zapisu:', err.message));
+        }).catch(err => console.error('Błąd zapisu do rekuperatora:', err.message));
     }
 });
 
@@ -231,61 +258,89 @@ pollData$.subscribe(data => {
         if (t1 !== null) {
             client.publish('mistral_addon/sensor/t1/state', t1.toString());
             latestData.t1 = t1;
+        } else {
+            console.warn('Nie udało się wyznaczyć poprawnej temperatury T1 z ciągu:', lines[0]);
         }
+
         if (t2 !== null) {
             client.publish('mistral_addon/sensor/t2/state', t2.toString());
             latestData.t2 = t2;
+        } else {
+            console.warn('Nie udało się wyznaczyć poprawnej temperatury T2 z ciągu:', lines[1]);
         }
+
         if (t3 !== null) {
             client.publish('mistral_addon/sensor/t3/state', t3.toString());
             latestData.t3 = t3;
+        } else {
+            console.warn('Nie udało się wyznaczyć poprawnej temperatury T3 z ciągu:', lines[1]);
         }
+    } else {
+        console.warn('Brak pola "tmp" w odpowiedzi z rekuperatora');
     }
 
     // 2. Parsowanie filtrów
     if (data.flt !== undefined) {
-        const days = parseInt(data.flt) || 0;
-        client.publish('mistral_addon/sensor/filter_days/state', days.toString());
-        latestData.filterDays = days;
+        const days = parseInt(data.flt);
+        if (!isNaN(days)) {
+            client.publish('mistral_addon/sensor/filter_days/state', days.toString());
+            latestData.filterDays = days;
+        } else {
+            console.warn('Nie udało się sparować wartości dni filtrów z pola flt:', data.flt);
+        }
+    } else {
+        console.warn('Brak pola "flt" w odpowiedzi z rekuperatora');
     }
 
     // 3. Parsowanie prędkości, wietrzenia i czasu
     if (data.spd) {
         const spd = String(data.spd); // np. "2ao", "2ai", "2aow15"
 
-        const rawGear = parseInt(spd[0]) || 0;
-        const percentState = rawGear * 25;
-        const workMode = spd[1] === 'a' ? 'wg programu dobowego' : 'ręczny';
+        if (spd.length >= 3) {
+            const rawGear = parseInt(spd[0]) || 0;
+            const percentState = rawGear * 25;
+            const workMode = spd[1] === 'a' ? 'wg programu dobowego' : 'ręczny';
 
-        const directionMap = {
-            o: 'nawiew + wywiew',
-            i: 'tylko nawiew',
-            w: 'tylko wywiew (otwarte okno)'
-        };
-        const fansDir = directionMap[spd[2]] || 'nawiew + wywiew';
-        const airingOn = spd.slice(3).length >= 3;
-        const airingOff = spd.slice(3).length < 3;
-        const ventTime = airingOff ? (parseInt(spd.slice(3)) || 0) : (parseInt(spd.slice(5)) || 0);
+            const directionMap = {
+                o: 'nawiew + wywiew',
+                i: 'tylko nawiew',
+                w: 'tylko wywiew (otwarte okno)'
+            };
+            const fansDir = directionMap[spd[2]] || 'nawiew + wywiew';
+            const airingOn = spd.slice(3).length >= 3;
+            const airingOff = spd.slice(3).length < 3;
+            const ventTime = airingOff ? (parseInt(spd.slice(3)) || 0) : (parseInt(spd.slice(5)) || 0);
 
-        client.publish('mistral_addon/number/speed/state', percentState.toString());
-        client.publish('mistral_addon/select/work_mode/state', workMode);
-        client.publish('mistral_addon/select/fans/state', fansDir);
-        client.publish('mistral_addon/switch/airing/state', airingOn ? 'ON' : 'OFF');
-        client.publish('mistral_addon/sensor/airing_time/state', ventTime.toString());
+            client.publish('mistral_addon/number/speed/state', percentState.toString());
+            client.publish('mistral_addon/select/work_mode/state', workMode);
+            client.publish('mistral_addon/select/fans/state', fansDir);
+            client.publish('mistral_addon/switch/airing/state', airingOn ? 'ON' : 'OFF');
+            client.publish('mistral_addon/sensor/airing_time/state', ventTime.toString());
 
-        latestData.speed = percentState;
-        latestData.mode = workMode;
-        latestData.fans = fansDir;
-        latestData.airing = airingOn;
-        latestData.airingTime = ventTime;
+            latestData.speed = percentState;
+            latestData.mode = workMode;
+            latestData.fans = fansDir;
+            latestData.airing = airingOn;
+            latestData.airingTime = ventTime;
+        } else {
+            console.warn('Za krótki ciąg spd z rekuperatora (oczekiwano min. 3 znaki):', spd);
+        }
+    } else {
+        console.warn('Brak pola "spd" w odpowiedzi z rekuperatora');
     }
 
     // 4. Parsowanie bypassu
     if (data.bps) {
         const bpsMap = {'0a': 'automatyczny (wg temp.)', '0z': 'stale załączony', '0w': 'stale wyłączony'};
-        const bypassState = bpsMap[data.bps] || 'automatyczny (wg temp.)';
-        client.publish('mistral_addon/select/bypass/state', bypassState);
-        latestData.bypass = bypassState;
+        const bypassState = bpsMap[data.bps];
+        if (bypassState) {
+            client.publish('mistral_addon/select/bypass/state', bypassState);
+            latestData.bypass = bypassState;
+        } else {
+            console.warn('Nieoczekiwana wartość pola bps z rekuperatora:', data.bps);
+        }
+    } else {
+        console.warn('Brak pola "bps" w odpowiedzi z rekuperatora');
     }
 
     // 5. Parsowanie sezonu
@@ -296,9 +351,15 @@ pollData$.subscribe(data => {
             'll': 'sezon chłodniczy (lato)',
             'zz': 'sezon grzewczy (zima)'
         };
-        const seasonState = sezMap[data.sez] || 'automatyczny';
-        client.publish('mistral_addon/select/season/state', seasonState);
-        latestData.season = seasonState;
+        const seasonState = sezMap[data.sez];
+        if (seasonState) {
+            client.publish('mistral_addon/select/season/state', seasonState);
+            latestData.season = seasonState;
+        } else {
+            console.warn('Nieoczekiwana wartość pola sez z rekuperatora:', data.sez);
+        }
+    } else {
+        console.warn('Brak pola "sez" w odpowiedzi z rekuperatora');
     }
 
     // 6. Parsowanie daty i czasu
@@ -333,14 +394,24 @@ pollData$.subscribe(data => {
             client.publish('mistral_addon/sensor/datetime/state', dateStr);
             latestData.datetime = dateStr;
         } else {
-            console.warn('Nie udało się sparować godziny/minuty z ciągu:', rawDat);
+            console.warn('Nie udało się sparować godziny/minuty z ciągu data.dat:', rawDat);
         }
+    } else {
+        console.warn('Brak pola "dat" w odpowiedzi z rekuperatora');
     }
 });
 
 function registerHAEntities() {
+    const publishConfig = (topic, payload) => {
+        client.publish(topic, JSON.stringify(payload), {retain: true}, (err) => {
+            if (err) {
+                console.warn(`Nie udało się zarejestrować encji MQTT (${topic}):`, err.message);
+            }
+        });
+    };
+
     // Czujniki temperatur
-    client.publish('homeassistant/sensor/reku_temp_t1/config', JSON.stringify({
+    publishConfig('homeassistant/sensor/reku_temp_t1/config', {
         name: 'Temperatura czerpni (T1)',
         state_topic: 'mistral_addon/sensor/t1/state',
         unit_of_measurement: '°C',
@@ -348,9 +419,9 @@ function registerHAEntities() {
         state_class: 'measurement',
         unique_id: 'reku_temp_t1',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/sensor/reku_temp_t2/config', JSON.stringify({
+    publishConfig('homeassistant/sensor/reku_temp_t2/config', {
         name: 'Temperatura nawiewu (T2)',
         state_topic: 'mistral_addon/sensor/t2/state',
         unit_of_measurement: '°C',
@@ -358,9 +429,9 @@ function registerHAEntities() {
         state_class: 'measurement',
         unique_id: 'reku_temp_t2',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/sensor/reku_temp_t3/config', JSON.stringify({
+    publishConfig('homeassistant/sensor/reku_temp_t3/config', {
         name: 'Temperatura wywiewu (T3)',
         state_topic: 'mistral_addon/sensor/t3/state',
         unit_of_measurement: '°C',
@@ -368,44 +439,44 @@ function registerHAEntities() {
         state_class: 'measurement',
         unique_id: 'reku_temp_t3',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/sensor/reku_filtry_dni/config', JSON.stringify({
+    publishConfig('homeassistant/sensor/reku_filtry_dni/config', {
         name: 'Dni do wymiany filtrów',
         state_topic: 'mistral_addon/sensor/filter_days/state',
         unit_of_measurement: 'd',
         icon: 'mdi:air-filter',
         unique_id: 'reku_filtry_dni',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/sensor/reku_czas_wietrzenia/config', JSON.stringify({
+    publishConfig('homeassistant/sensor/reku_czas_wietrzenia/config', {
         name: 'Czas wietrzenia',
         state_topic: 'mistral_addon/sensor/airing_time/state',
         unit_of_measurement: 'min',
         icon: 'mdi:clock-outline',
         unique_id: 'reku_czas_wietrzenia',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/sensor/reku_data_czas/config', JSON.stringify({
+    publishConfig('homeassistant/sensor/reku_data_czas/config', {
         name: 'Data i czas sterownika',
         state_topic: 'mistral_addon/sensor/datetime/state',
         icon: 'mdi:calendar-clock',
         unique_id: 'reku_data_czas',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/button/reku_synch_czas/config', JSON.stringify({
+    publishConfig('homeassistant/button/reku_synch_czas/config', {
         name: 'Synchronizuj czas z HA',
         command_topic: 'mistral_addon/sync_time/set',
         payload_press: 'PRESS',
         icon: 'mdi:clock-sync-outline',
         unique_id: 'reku_synch_czas',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/number/reku_bieg_went/config', JSON.stringify({
+    publishConfig('homeassistant/number/reku_bieg_went/config', {
         name: 'Bieg wentylacji',
         state_topic: 'mistral_addon/number/speed/state',
         command_topic: 'mistral_addon/spd_b/set',
@@ -416,9 +487,9 @@ function registerHAEntities() {
         icon: 'mdi:fan',
         unique_id: 'reku_bieg_went',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/switch/reku_wietrzenie/config', JSON.stringify({
+    publishConfig('homeassistant/switch/reku_wietrzenie/config', {
         name: 'Wietrzenie',
         state_topic: 'mistral_addon/switch/airing/state',
         command_topic: 'mistral_addon/airing/set',
@@ -427,9 +498,9 @@ function registerHAEntities() {
         icon: 'mdi:fan',
         unique_id: 'reku_wietrzenie',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/select/reku_wentylatory/config', JSON.stringify({
+    publishConfig('homeassistant/select/reku_wentylatory/config', {
         name: 'Wentylatory',
         state_topic: 'mistral_addon/select/fans/state',
         command_topic: 'mistral_addon/fans/set',
@@ -437,9 +508,9 @@ function registerHAEntities() {
         icon: 'mdi:fan',
         unique_id: 'reku_wentylatory',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/select/reku_tryb_pracy/config', JSON.stringify({
+    publishConfig('homeassistant/select/reku_tryb_pracy/config', {
         name: 'Tryb pracy wentylacji',
         state_topic: 'mistral_addon/select/work_mode/state',
         command_topic: 'mistral_addon/work_mode/set',
@@ -447,9 +518,9 @@ function registerHAEntities() {
         icon: 'mdi:fan',
         unique_id: 'reku_tryb_pracy',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/select/reku_bypass/config', JSON.stringify({
+    publishConfig('homeassistant/select/reku_bypass/config', {
         name: 'Tryb pracy bypassu',
         state_topic: 'mistral_addon/select/bypass/state',
         command_topic: 'mistral_addon/bypass/set',
@@ -457,9 +528,9 @@ function registerHAEntities() {
         icon: 'mdi:air-filter',
         unique_id: 'reku_bypass',
         device: deviceInfo
-    }), {retain: true});
+    });
 
-    client.publish('homeassistant/select/reku_sezon/config', JSON.stringify({
+    publishConfig('homeassistant/select/season/config', {
         name: 'Sezon',
         state_topic: 'mistral_addon/select/season/state',
         command_topic: 'mistral_addon/season/set',
@@ -467,5 +538,5 @@ function registerHAEntities() {
         icon: 'mdi:calendar',
         unique_id: 'reku_sezon',
         device: deviceInfo
-    }), {retain: true});
+    });
 }
