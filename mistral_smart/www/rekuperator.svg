@@ -31,11 +31,6 @@
 
   <!-- Temperature Labels & Values -->
   <text x="430" y="275" class="label">Czerpnia (T1)</text>
-  <text x="430" y="300" class="val" fill="#42a5f5">[[sensor.reku_temp_t1.state]] °C</text>
-
   <text x="70" y="205" class="label">Nawiew (T2)</text>
-  <text x="70" y="230" class="val" fill="#ef5350">[[sensor.reku_temp_t2.state]] °C</text>
-
   <text x="430" y="205" class="label">Wywiew (T3)</text>
-  <text x="430" y="230" class="val" fill="#81c784">[[sensor.reku_temp_t3.state]] °C</text>
 </svg>
