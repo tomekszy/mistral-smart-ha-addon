@@ -1,0 +1,1675 @@
+[
+    {
+        "id": "db420a629b019bad",
+        "type": "tab",
+        "label": "Rekuperacja",
+        "disabled": true,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "b049483276efa835",
+        "type": "http request",
+        "z": "db420a629b019bad",
+        "name": "",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 550,
+        "y": 140,
+        "wires": [
+            [
+                "a13f75c47fb36020"
+            ]
+        ]
+    },
+    {
+        "id": "39eaf7bcdcfdc19b",
+        "type": "inject",
+        "z": "db420a629b019bad",
+        "name": "get all data",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "path",
+                "v": "/api/getdata.php",
+                "vt": "str"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "variable[]=all",
+        "payloadType": "str",
+        "x": 90,
+        "y": 120,
+        "wires": [
+            [
+                "98f738dff8590d90"
+            ]
+        ]
+    },
+    {
+        "id": "7113fd9dec0fadfa",
+        "type": "comment",
+        "z": "db420a629b019bad",
+        "name": "Odczyt ustawień",
+        "info": "",
+        "x": 80,
+        "y": 20,
+        "wires": []
+    },
+    {
+        "id": "set-global-ip",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "save IP to global",
+        "func": "global.set(\"myIP\", msg.payload ?? msg.previousValue);\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "98f738dff8590d90",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "add IP to req",
+        "func": "let ip = global.get(\"myIP\");\nif (!ip) return null;\nmsg.url = \"http://\" + ip + msg.path;\nmsg.headers = { \"Content-Type\": \"application/x-www-form-urlencoded\" };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 290,
+        "y": 140,
+        "wires": [
+            [
+                "b049483276efa835"
+            ]
+        ]
+    },
+    {
+        "id": "a13f75c47fb36020",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "parse JSON",
+        "func": "if (!msg.payload) return null;\n\nif (msg.payload.Status) {\n    if (msg.payload.Status === \"OK\") {\n        return [null, { trigger: true }];\n    } else {\n        node.error(\"Błąd statusu: \" + msg.payload.Status, msg);\n        return null;\n    }\n} else if (msg.payload.all) {\n    let dataRaw = msg.payload.all;\n    let parsed;\n\n    try {\n        parsed = typeof dataRaw === 'object' ? dataRaw : JSON.parse(dataRaw);\n    } catch (err) {\n        node.error(\"Nieprawidłowy JSON w msg.payload.all: \" + err.message, msg);\n        return null;\n    }\n\n    return [\n        { payload: parsed.tmp, source: \"device\" },\n        { payload: parsed.dat, source: \"device\" },\n        { payload: parsed.stn, source: \"device\" },\n        { payload: parsed.sez, source: \"device\" },\n        { payload: parsed.flt, source: \"device\" },\n        { payload: parsed.asc, source: \"device\" },\n        { payload: parsed.bps, source: \"device\" },\n        { payload: parsed.iaw, source: \"device\" },\n        { payload: parsed.spd, source: \"device\" }\n    ];\n} \nreturn null;",
+        "outputs": 9,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 570,
+        "y": 320,
+        "wires": [
+            [
+                "c5fa8a711b977a55"
+            ],
+            [
+                "776ef0b93349aab0"
+            ],
+            [],
+            [
+                "3103ee440d8b4b1b"
+            ],
+            [
+                "419dcd35548e53a8"
+            ],
+            [],
+            [
+                "8e638f89e1bd7a75"
+            ],
+            [],
+            [
+                "9a8baa4d2fd06e75"
+            ]
+        ]
+    },
+    {
+        "id": "419dcd35548e53a8",
+        "type": "ha-sensor",
+        "z": "db420a629b019bad",
+        "name": "Liczba dni do wymiany filtrów",
+        "entityConfig": "452680ab626fe6c4",
+        "version": 1,
+        "state": "payload",
+        "stateType": "msg",
+        "available": "true",
+        "availableType": "bool",
+        "attributes": [],
+        "inputOverride": "allow",
+        "outputProperties": [],
+        "x": 1060,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9a8baa4d2fd06e75",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "parse speed",
+        "func": "const spd = msg.payload || \"\";\n\nconst fan_speed = parseInt(spd[0]) || 0;\nconst mode = spd[1] === \"a\" ? \"wg programu dobowego\" : \"ręczny\";\nconst direction_map = { o: \"nawiew + wywiew\", i: \"tylko nawiew\", w: \"tylko wywiew (otwarte okno)\" };\nconst direction = direction_map[spd[2]] || \"nawiew + wywiew\";\nconst airing_on = spd.slice(3).length >= 3;\nconst airing_off = spd.slice(3).length < 3;\nconst vent_time = airing_off ? parseInt(spd.slice(3)) || 0 : parseInt(spd.slice(5)) || 0;\n\nreturn [\n    { payload: fan_speed, source: msg.source },\n    { payload: mode, source: msg.source },\n    { payload: direction, source: msg.source },\n    { payload: vent_time, source: msg.source },\n    airing_on ? { payload: true, source: msg.source } : null,\n    airing_off ? { payload: false, source: msg.source } : null\n];",
+        "outputs": 6,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 790,
+        "y": 460,
+        "wires": [
+            [
+                "cfe9cfc9eac2bcc9"
+            ],
+            [
+                "d43dab92adce9836"
+            ],
+            [
+                "64cf16a6a682515f"
+            ],
+            [
+                "e98eeaa926482512"
+            ],
+            [
+                "12a8bccf331aab6e"
+            ],
+            [
+                "25d3d688b2e6edb2"
+            ]
+        ]
+    },
+    {
+        "id": "c5fa8a711b977a55",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "parse temp",
+        "func": "const tmp = msg.payload || \"\";\nconst lines = tmp.split(\";\");\n\nconst parseVal = val => {\n    let v = val.trim();\n    if (v === \"---\") return null;\n    let num = parseFloat(v);\n    // Filtrowanie domyślnych wartości rozwarcia wejść analogowych (+50.0, +63.0)\n    if (isNaN(num) || num === 50.0 || num === 63.0) return null;\n    return num;\n};\n\nconst parsed = lines.map(line => line.split(\",\").map(parseVal));\n\n// Zbieramy aktywne wartości temperatur z poszczególnych linii:\n// Linia 1: T1 Czerpnia (np. +15.5)\n// Linia 2: T2 Wyrzutnia (+16.0), T3 Pokój (+17.0)\nconst t1_val = parsed[0]?.find(v => v !== null) ?? null;\nconst t2_val = parsed[1]?.[0] ?? null;\nconst t3_val = parsed[1]?.[1] ?? null;\n\nreturn [\n    { payload: t1_val, attributes: { raw_line_1: lines[0] }, source: msg.source },\n    { payload: t2_val, attributes: { raw_line_2: lines[1] }, source: msg.source },\n    { payload: t3_val, attributes: { raw_line_3: lines[2] }, source: msg.source }\n];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 790,
+        "y": 60,
+        "wires": [
+            [
+                "04c2c21a9a08c639"
+            ],
+            [
+                "054736a49db4eb88"
+            ],
+            [
+                "7a69c57691662f02"
+            ]
+        ]
+    },
+    {
+        "id": "04c2c21a9a08c639",
+        "type": "ha-sensor",
+        "z": "db420a629b019bad",
+        "name": "T1",
+        "entityConfig": "f5998ccd15aae8ff",
+        "version": 1,
+        "state": "payload",
+        "stateType": "msg",
+        "available": "true",
+        "availableType": "bool",
+        "attributes": [],
+        "inputOverride": "allow",
+        "outputProperties": [],
+        "x": 990,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "054736a49db4eb88",
+        "type": "ha-sensor",
+        "z": "db420a629b019bad",
+        "name": "T2",
+        "entityConfig": "643db57b762188a0",
+        "version": 1,
+        "state": "payload",
+        "stateType": "msg",
+        "available": "true",
+        "availableType": "bool",
+        "attributes": [],
+        "inputOverride": "allow",
+        "outputProperties": [],
+        "x": 990,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "7a69c57691662f02",
+        "type": "ha-sensor",
+        "z": "db420a629b019bad",
+        "name": "T3",
+        "entityConfig": "ae8168eef345528b",
+        "version": 1,
+        "state": "payload",
+        "stateType": "msg",
+        "available": "true",
+        "availableType": "bool",
+        "attributes": [],
+        "inputOverride": "allow",
+        "outputProperties": [],
+        "x": 990,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "776ef0b93349aab0",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "parse date",
+        "func": "const dat = msg.payload || \"\"; // np. \"01654\"\nif (dat.length < 5) return null;\n\nconst daysNames = [\"poniedziałek\", \"wtorek\", \"środa\", \"czwartek\", \"piątek\", \"sobota\", \"niedziela\"];\n\nlet day_raw = parseInt(dat[0]) || 0;\nlet hour = dat.substring(1, 3);\nlet minute = dat.substring(3, 5);\n\n// Tworzenie poprawnego timestampu ISO-8601 ze strefą czasową\nconst now = new Date();\nconst year = now.getFullYear();\nconst month = String(now.getMonth() + 1).padStart(2, '0');\nconst day = String(now.getDate()).padStart(2, '0');\n\n// Określenie przesunięcia strefy czasowej (np. +02:00 / +01:00)\nconst tzOffsetMinutes = -now.getTimezoneOffset();\nconst offsetSign = tzOffsetMinutes >= 0 ? '+' : '-';\nconst offsetHours = String(Math.floor(Math.abs(tzOffsetMinutes) / 60)).padStart(2, '0');\nconst offsetMins = String(Math.abs(tzOffsetMinutes) % 60).padStart(2, '0');\nconst tzString = `${offsetSign}${offsetHours}:${offsetMins}`;\n\n// Pełny ciąg ISO gotowy do sparsowania przez klasę timestamp w HA\nconst isoTimestamp = `${year}-${month}-${day}T${hour}:${minute}:00${tzString}`;\n\nreturn {\n    payload: isoTimestamp,\n    attributes: {\n        day_of_week: day_raw,\n        day_name: daysNames[day_raw] || \"nieznany\",\n        formatted_time: `${hour}:${minute}`\n    },\n    source: msg.source\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 790,
+        "y": 120,
+        "wires": [
+            [
+                "df0e00b17e6b3c2c"
+            ]
+        ]
+    },
+    {
+        "id": "df0e00b17e6b3c2c",
+        "type": "ha-sensor",
+        "z": "db420a629b019bad",
+        "name": "Data i Czas",
+        "entityConfig": "ab6fdd40ec84ee90",
+        "version": 1,
+        "state": "payload",
+        "stateType": "msg",
+        "available": "true",
+        "availableType": "bool",
+        "attributes": [
+            {
+                "property": "day_of_week",
+                "value": "attributes.day_of_week",
+                "valueType": "msg"
+            },
+            {
+                "property": "day_name",
+                "value": "attributes.day_name",
+                "valueType": "msg"
+            },
+            {
+                "property": "formatted_time",
+                "value": "attributes.formatted_time",
+                "valueType": "msg"
+            }
+        ],
+        "inputOverride": "allow",
+        "outputProperties": [],
+        "x": 1010,
+        "y": 220,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3103ee440d8b4b1b",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "parse season",
+        "func": "const sez = msg.payload || \"\";\nconst automatic = \"automatyczny\";\n\nconst map = {\n    \"za\": automatic,\n    \"zl\": automatic, \n    \"ll\": \"sezon chłodniczy (lato)\",\n    \"zz\": \"sezon grzewczy (zima)\"\n};\n\nreturn {payload: map[sez] ?? automatic, source: msg.source};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 300,
+        "wires": [
+            [
+                "5035a1ce9257d2a9"
+            ]
+        ]
+    },
+    {
+        "id": "8e638f89e1bd7a75",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "parse bypass",
+        "func": "const bps = msg.payload || \"\";\nconst automatic = \"automatyczny (wg temp.)\";\n\nconst map = {\n    \"0a\": automatic,\n    \"0z\": \"stale załączony\", \n    \"0w\": \"stale wyłączony\"\n};\n\nreturn {payload: map[bps] ?? automatic, source: msg.source};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 790,
+        "y": 360,
+        "wires": [
+            [
+                "3fe37f3e8a6d962b"
+            ]
+        ]
+    },
+    {
+        "id": "ec4c95c7588cb2d6",
+        "type": "comment",
+        "z": "db420a629b019bad",
+        "name": "Zmiana ustawień",
+        "info": "",
+        "x": 100,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "dfdb07ed543e929e",
+        "type": "ha-number",
+        "z": "db420a629b019bad",
+        "name": "Bieg wentylacji",
+        "version": 1,
+        "debugenabled": false,
+        "inputs": 0,
+        "outputs": 1,
+        "entityConfig": "6b6769832695e4de",
+        "exposeAsEntityConfig": "",
+        "mode": "listen",
+        "value": "payload",
+        "valueType": "msg",
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "value"
+            },
+            {
+                "property": "previousValue",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "previousValue"
+            }
+        ],
+        "x": 100,
+        "y": 240,
+        "wires": [
+            [
+                "a2f2198189366bc5"
+            ]
+        ]
+    },
+    {
+        "id": "a2f2198189366bc5",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "save vent gear to unit",
+        "func": "var x = msg.payload;\nmsg.payload = \"data=spd:b\" + x;\nmsg.source = \"user\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 260,
+        "wires": [
+            [
+                "f77b51a648959cc2"
+            ]
+        ]
+    },
+    {
+        "id": "f77b51a648959cc2",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "add save path to req",
+        "func": "msg.path = \"/api/savedata.php\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 200,
+        "wires": [
+            [
+                "ce791323aa685745"
+            ]
+        ]
+    },
+    {
+        "id": "166e0df1fd48388b",
+        "type": "ha-switch",
+        "z": "db420a629b019bad",
+        "name": "Wietrzenie",
+        "version": 0,
+        "debugenabled": false,
+        "inputs": 0,
+        "outputs": 2,
+        "entityConfig": "3897aba9cf6baf2f",
+        "enableInput": false,
+        "outputOnStateChange": true,
+        "outputProperties": [
+            {
+                "property": "outputType",
+                "propertyType": "msg",
+                "value": "state change",
+                "valueType": "str"
+            },
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "entityState"
+            }
+        ],
+        "x": 80,
+        "y": 300,
+        "wires": [
+            [
+                "eed859c372a9f1bb"
+            ],
+            [
+                "eed859c372a9f1bb"
+            ]
+        ]
+    },
+    {
+        "id": "eed859c372a9f1bb",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "save airing to unit",
+        "func": "var x = (msg.payload === \"on\" || msg.payload === true) ? 1 : 0;\nmsg.payload = \"data=spd:w\" + x;\nmsg.source = \"user\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 320,
+        "wires": [
+            [
+                "f77b51a648959cc2"
+            ]
+        ]
+    },
+    {
+        "id": "9314a7297df54334",
+        "type": "ha-select",
+        "z": "db420a629b019bad",
+        "name": "Wentylatory",
+        "version": 1,
+        "debugenabled": false,
+        "inputs": 0,
+        "outputs": 1,
+        "entityConfig": "f64bd35c146aae3f",
+        "exposeAsEntityConfig": "",
+        "mode": "listen",
+        "value": "payload",
+        "valueType": "msg",
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "value"
+            },
+            {
+                "property": "previousValue",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "previousValue"
+            }
+        ],
+        "x": 90,
+        "y": 360,
+        "wires": [
+            [
+                "6921220aecb9608c"
+            ]
+        ]
+    },
+    {
+        "id": "b28c490b121bc697",
+        "type": "ha-select",
+        "z": "db420a629b019bad",
+        "name": "Tryb pracy wentylacji",
+        "version": 1,
+        "debugenabled": false,
+        "inputs": 0,
+        "outputs": 1,
+        "entityConfig": "81dde85f0634fae1",
+        "exposeAsEntityConfig": "",
+        "mode": "listen",
+        "value": "payload",
+        "valueType": "msg",
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "value"
+            },
+            {
+                "property": "previousValue",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "previousValue"
+            }
+        ],
+        "x": 110,
+        "y": 420,
+        "wires": [
+            [
+                "487f9e4990aee587"
+            ]
+        ]
+    },
+    {
+        "id": "89fa1aca8661eaed",
+        "type": "ha-select",
+        "z": "db420a629b019bad",
+        "name": "Tryb pracy bypassu",
+        "version": 1,
+        "debugenabled": false,
+        "inputs": 0,
+        "outputs": 1,
+        "entityConfig": "f5feb1ea1a6e5d37",
+        "exposeAsEntityConfig": "",
+        "mode": "listen",
+        "value": "payload",
+        "valueType": "msg",
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "value"
+            },
+            {
+                "property": "previousValue",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "previousValue"
+            }
+        ],
+        "x": 110,
+        "y": 480,
+        "wires": [
+            [
+                "4bc72feed9df7185"
+            ]
+        ]
+    },
+    {
+        "id": "6bc57e717be9abbb",
+        "type": "ha-select",
+        "z": "db420a629b019bad",
+        "name": "Sezon",
+        "version": 1,
+        "debugenabled": false,
+        "inputs": 0,
+        "outputs": 1,
+        "entityConfig": "ccf0631bc08a77b2",
+        "exposeAsEntityConfig": "",
+        "mode": "listen",
+        "value": "payload",
+        "valueType": "msg",
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "value"
+            },
+            {
+                "property": "previousValue",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "previousValue"
+            }
+        ],
+        "x": 70,
+        "y": 540,
+        "wires": [
+            [
+                "89ebd19a23af2aef"
+            ]
+        ]
+    },
+    {
+        "id": "6a588d115d082192",
+        "type": "ha-text",
+        "z": "db420a629b019bad",
+        "name": "Set IP",
+        "version": 1,
+        "debugenabled": false,
+        "inputs": 0,
+        "outputs": 1,
+        "entityConfig": "9182f9decf2a6ff2",
+        "exposeAsEntityConfig": "",
+        "mode": "listen",
+        "value": "payload",
+        "valueType": "msg",
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "value"
+            },
+            {
+                "property": "previousValue",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "previousValue"
+            }
+        ],
+        "x": 270,
+        "y": 80,
+        "wires": [
+            [
+                "set-global-ip"
+            ]
+        ]
+    },
+    {
+        "id": "6921220aecb9608c",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "save fans to unit",
+        "func": "const map = {\n    \"nawiew + wywiew\": \"po\",\n    \"tylko wywiew (otwarte okno)\": \"pw\",\n    \"tylko nawiew\": \"pi\"\n};\nconst normalize = s => (s ?? \"\").trim().toLowerCase();\nlet input = normalize(msg.payload);\nlet found = false;\nfor (let key in map) {\n    if (normalize(key) === input) {\n        msg.payload = \"data=spd:\" + map[key];\n        found = true;\n        break;\n    }\n}\nif (!found) {\n    msg.payload = \"data=spd:\" + map[\"nawiew + wywiew\"];\n}\nmsg.source = \"user\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 300,
+        "y": 380,
+        "wires": [
+            [
+                "f77b51a648959cc2"
+            ]
+        ]
+    },
+    {
+        "id": "487f9e4990aee587",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "save vent work mode to unit",
+        "func": "const map = {\n    \"wg programu dobowego\": \"ta\",\n    \"ręczny\": \"tm\"\n};\nconst normalize = s => (s ?? \"\").trim().toLowerCase();\nlet input = normalize(msg.payload);\nlet found = false;\nfor (let key in map) {\n    if (normalize(key) === input) {\n        msg.payload = \"data=spd:\" + map[key];\n        found = true;\n        break;\n    }\n}\nif (!found) {\n    msg.payload = \"data=spd:\" + map[\"wg programu dobowego\"];\n}\nmsg.source = \"user\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 440,
+        "wires": [
+            [
+                "f77b51a648959cc2"
+            ]
+        ]
+    },
+    {
+        "id": "4bc72feed9df7185",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "save bypass to unit",
+        "func": "const map = {\n    \"automatyczny (wg temp.)\": \"ta\",\n    \"stale załączony\": \"tz\",\n    \"stale wyłączony\": \"tw\"\n};\nconst normalize = s => (s ?? \"\").trim().toLowerCase();\nlet input = normalize(msg.payload);\nlet found = false;\nfor (let key in map) {\n    if (normalize(key) === input) {\n        msg.payload = \"data=bps:\" + map[key];\n        found = true;\n        break;\n    }\n}\nif (!found) {\n    msg.payload = \"data=bps:\" + map[\"automatyczny (wg temp.)\"];\n}\nmsg.source = \"user\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 500,
+        "wires": [
+            [
+                "f77b51a648959cc2"
+            ]
+        ]
+    },
+    {
+        "id": "89ebd19a23af2aef",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "save season to unit",
+        "func": "const map = {\n    \"automatyczny\": \"sa\",\n    \"sezon chłodniczy (lato)\": \"sl\",\n    \"sezon grzewczy (zima)\": \"sz\"\n};\nconst normalize = s => (s ?? \"\").trim().toLowerCase();\nlet input = normalize(msg.payload);\nlet found = false;\nfor (let key in map) {\n    if (normalize(key) === input) {\n        msg.payload = \"data=sez:\" + map[key];\n        found = true;\n        break;\n    }\n}\nif (!found) {\n    msg.payload = \"data=sez:\" + map[\"automatyczny\"];\n}\nmsg.source = \"user\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 560,
+        "wires": [
+            [
+                "f77b51a648959cc2"
+            ]
+        ]
+    },
+    {
+        "id": "5035a1ce9257d2a9",
+        "type": "api-call-service",
+        "z": "db420a629b019bad",
+        "name": "save season to entity",
+        "server": "62f103105d362aac",
+        "version": 7,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [
+            "select.mistral_smart_sezon"
+        ],
+        "labelId": [],
+        "data": "{\"option\": \"{{payload}}\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "select",
+        "service": "select_option",
+        "x": 1040,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3fe37f3e8a6d962b",
+        "type": "api-call-service",
+        "z": "db420a629b019bad",
+        "name": "save bypass to entity",
+        "server": "62f103105d362aac",
+        "version": 7,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [
+            "select.mistral_smart_tryb_pracy_bypassu"
+        ],
+        "labelId": [],
+        "data": "{\"option\": \"{{payload}}\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "select",
+        "service": "select_option",
+        "x": 1040,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "cfe9cfc9eac2bcc9",
+        "type": "api-call-service",
+        "z": "db420a629b019bad",
+        "name": "save vent gear to entity",
+        "server": "62f103105d362aac",
+        "version": 7,
+        "debugenabled": false,
+        "action": "number.set_value",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [
+            "number.mistral_smart_bieg_wentylacji"
+        ],
+        "labelId": [],
+        "data": "{\"value\": \"{{payload}}\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "number",
+        "service": "set_value",
+        "x": 1050,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d43dab92adce9836",
+        "type": "api-call-service",
+        "z": "db420a629b019bad",
+        "name": "save vent work mode to entity",
+        "server": "62f103105d362aac",
+        "version": 7,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [
+            "select.mistral_smart_tryb_pracy_wentylacji"
+        ],
+        "labelId": [],
+        "data": "{\"option\": \"{{payload}}\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "select",
+        "service": "select_option",
+        "x": 1070,
+        "y": 520,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "64cf16a6a682515f",
+        "type": "api-call-service",
+        "z": "db420a629b019bad",
+        "name": "save fans to entity",
+        "server": "62f103105d362aac",
+        "version": 7,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [
+            "select.mistral_smart_wentylatory"
+        ],
+        "labelId": [],
+        "data": "{\"option\": \"{{payload}}\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "select",
+        "service": "select_option",
+        "x": 1030,
+        "y": 580,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e98eeaa926482512",
+        "type": "ha-sensor",
+        "z": "db420a629b019bad",
+        "name": "Czas wietrzenia",
+        "entityConfig": "6316719fe0e8cc4f",
+        "version": 1,
+        "state": "payload",
+        "stateType": "msg",
+        "available": "true",
+        "availableType": "bool",
+        "attributes": [],
+        "inputOverride": "allow",
+        "outputProperties": [],
+        "x": 1020,
+        "y": 640,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "05e82963fe4af599",
+        "type": "inject",
+        "z": "db420a629b019bad",
+        "name": "inject IP after start",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "10",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 110,
+        "y": 60,
+        "wires": [
+            [
+                "c67b3975b99b2c90"
+            ]
+        ]
+    },
+    {
+        "id": "c67b3975b99b2c90",
+        "type": "api-current-state",
+        "z": "db420a629b019bad",
+        "name": "",
+        "server": "62f103105d362aac",
+        "version": 3,
+        "outputs": 1,
+        "halt_if": "",
+        "halt_if_type": "str",
+        "halt_if_compare": "is",
+        "entity_id": "text.mistral_smart_set_ip",
+        "state_type": "str",
+        "blockInputOverrides": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "string",
+                "valueType": "entityState"
+            },
+            {
+                "property": "data",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "entity"
+            }
+        ],
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "override_topic": false,
+        "state_location": "payload",
+        "override_payload": "msg",
+        "entity_location": "data",
+        "override_data": "msg",
+        "x": 360,
+        "y": 20,
+        "wires": [
+            [
+                "set-global-ip"
+            ]
+        ]
+    },
+    {
+        "id": "25d3d688b2e6edb2",
+        "type": "api-call-service",
+        "z": "db420a629b019bad",
+        "name": "save airing to entity (off)",
+        "server": "62f103105d362aac",
+        "version": 7,
+        "debugenabled": false,
+        "action": "switch.turn_off",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [
+            "switch.mistral_smart_wietrzenie"
+        ],
+        "labelId": [],
+        "data": "",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "switch",
+        "service": "turn_off",
+        "x": 1050,
+        "y": 760,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "12a8bccf331aab6e",
+        "type": "api-call-service",
+        "z": "db420a629b019bad",
+        "name": "save airing to entity (on)",
+        "server": "62f103105d362aac",
+        "version": 7,
+        "debugenabled": false,
+        "action": "switch.turn_on",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [
+            "switch.mistral_smart_wietrzenie"
+        ],
+        "labelId": [],
+        "data": "",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "switch",
+        "service": "turn_on",
+        "x": 1050,
+        "y": 700,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ce791323aa685745",
+        "type": "function",
+        "z": "db420a629b019bad",
+        "name": "distinctUntilChanges",
+        "func": "let payload = msg.payload || \"\";\n\nif (!payload.startsWith(\"data=\")) {\n    return msg;\n}\n\nlet key = payload.slice(5, 10);\nlet prev = flow.get('last_written_' + key) || null;\n\nif (msg.source === \"user\") {\n    if (payload !== prev) {\n        flow.set('last_written_' + key, payload);\n        return msg; // Przepuszcza tylko raz poprawny zapis od użytkownika\n    }\n}\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 200,
+        "wires": [
+            [
+                "98f738dff8590d90"
+            ]
+        ]
+    },
+    {
+        "id": "452680ab626fe6c4",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_days_to_filter_check",
+        "version": 6,
+        "entityType": "sensor",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Liczba dni do wymiany filtrów"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:air-filter"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "device_class",
+                "value": "duration"
+            },
+            {
+                "property": "unit_of_measurement",
+                "value": "d"
+            },
+            {
+                "property": "state_class",
+                "value": "measurement"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "f5998ccd15aae8ff",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_T1",
+        "version": 6,
+        "entityType": "sensor",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "T1"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:thermometer"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "device_class",
+                "value": "temperature"
+            },
+            {
+                "property": "unit_of_measurement",
+                "value": "°C"
+            },
+            {
+                "property": "state_class",
+                "value": "measurement"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "643db57b762188a0",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_T2",
+        "version": 6,
+        "entityType": "sensor",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "T2"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:thermometer"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "device_class",
+                "value": "temperature"
+            },
+            {
+                "property": "unit_of_measurement",
+                "value": "°C"
+            },
+            {
+                "property": "state_class",
+                "value": "measurement"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "ae8168eef345528b",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_T3",
+        "version": 6,
+        "entityType": "sensor",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "T3"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:thermometer"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "device_class",
+                "value": "temperature"
+            },
+            {
+                "property": "unit_of_measurement",
+                "value": "°C"
+            },
+            {
+                "property": "state_class",
+                "value": "measurement"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "ab6fdd40ec84ee90",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_time_date",
+        "version": 6,
+        "entityType": "sensor",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Data i Czas"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:clock"
+            },
+            {
+                "property": "device_class",
+                "value": "timestamp"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "6b6769832695e4de",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_set_vent_gear",
+        "version": 6,
+        "entityType": "number",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Bieg wentylacji"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:speedometer"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "device_class",
+                "value": ""
+            },
+            {
+                "property": "unit_of_measurement",
+                "value": ""
+            },
+            {
+                "property": "min_value",
+                "value": 0
+            },
+            {
+                "property": "max_value",
+                "value": 4
+            },
+            {
+                "property": "step_value",
+                "value": 1
+            },
+            {
+                "property": "mode",
+                "value": "slider"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "3897aba9cf6baf2f",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_set_airing",
+        "version": 6,
+        "entityType": "switch",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Wietrzenie"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:fan"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "device_class",
+                "value": "switch"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "f64bd35c146aae3f",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_set_fans",
+        "version": 6,
+        "entityType": "select",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Wentylatory"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:fan"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "options",
+                "value": [
+                    "nawiew + wywiew",
+                    "tylko wywiew (otwarte okno)",
+                    "tylko nawiew"
+                ]
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "81dde85f0634fae1",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_set_vent_work_mode",
+        "version": 6,
+        "entityType": "select",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Tryb pracy wentylacji"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:fan"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "options",
+                "value": [
+                    "wg programu dobowego",
+                    "ręczny"
+                ]
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "f5feb1ea1a6e5d37",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_set_bypass",
+        "version": 6,
+        "entityType": "select",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Tryb pracy bypassu"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:air-filter"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "options",
+                "value": [
+                    "automatyczny (wg temp.)",
+                    "stale załączony",
+                    "stale wyłączony"
+                ]
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "ccf0631bc08a77b2",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_set_season",
+        "version": 6,
+        "entityType": "select",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Sezon"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:calendar"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "options",
+                "value": [
+                    "automatyczny",
+                    "sezon chłodniczy (lato)",
+                    "sezon grzewczy (zima)"
+                ]
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "9182f9decf2a6ff2",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_set_ip_addr",
+        "version": 6,
+        "entityType": "text",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Set IP"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:ip"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "mode",
+                "value": "text"
+            },
+            {
+                "property": "min_length",
+                "value": 7
+            },
+            {
+                "property": "max_length",
+                "value": 15
+            },
+            {
+                "property": "pattern",
+                "value": "^(((?!25?[6-9])[12]\\d|[1-9])?\\d\\.?\\b){4}$"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "62f103105d362aac",
+        "type": "server",
+        "name": "Home Assistant",
+        "version": 6,
+        "addon": true,
+        "rejectUnauthorizedCerts": true,
+        "ha_boolean": [
+            "y",
+            "yes",
+            "true",
+            "on",
+            "home",
+            "open"
+        ],
+        "connectionDelay": true,
+        "cacheJson": true,
+        "heartbeat": true,
+        "heartbeatInterval": "30",
+        "areaSelector": "friendlyName",
+        "deviceSelector": "friendlyName",
+        "entitySelector": "friendlyName",
+        "statusSeparator": ": ",
+        "statusYear": "hidden",
+        "statusMonth": "short",
+        "statusDay": "numeric",
+        "statusHourCycle": "default",
+        "statusTimeFormat": "h:m",
+        "enableGlobalContextStore": true
+    },
+    {
+        "id": "6316719fe0e8cc4f",
+        "type": "ha-entity-config",
+        "server": "62f103105d362aac",
+        "deviceConfig": "b207b7dee4ceddd9",
+        "name": "provent_http_airing_time",
+        "version": 6,
+        "entityType": "sensor",
+        "haConfig": [
+            {
+                "property": "name",
+                "value": "Czas wietrzenia"
+            },
+            {
+                "property": "icon",
+                "value": "mdi:clock"
+            },
+            {
+                "property": "entity_picture",
+                "value": ""
+            },
+            {
+                "property": "entity_category",
+                "value": ""
+            },
+            {
+                "property": "device_class",
+                "value": "duration"
+            },
+            {
+                "property": "unit_of_measurement",
+                "value": "min"
+            },
+            {
+                "property": "state_class",
+                "value": "measurement"
+            }
+        ],
+        "resend": false,
+        "debugEnabled": false
+    },
+    {
+        "id": "b207b7dee4ceddd9",
+        "type": "ha-device-config",
+        "name": "Mistral Smart",
+        "hwVersion": "",
+        "manufacturer": "Pro-Vent",
+        "model": "EC300",
+        "swVersion": ""
+    },
+    {
+        "id": "8c639c75e66331e8",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-home-assistant-websocket": "0.81.0"
+        }
+    }
+]
